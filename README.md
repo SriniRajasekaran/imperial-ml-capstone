@@ -67,7 +67,5 @@ The RAG scorecard and all diagnostic charts are auto-generated in `reports/` whe
 
 ![Audit Scorecard](reports/05_audit_scorecard.png)
 
-## CONTACT DETAILS
 
-Imperial College London — Professional Certificate in Machine Learning & AI  
 Capstone submission, June 2026
