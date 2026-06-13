@@ -88,3 +88,15 @@ Black-box optimisation challenge across eight unknown functions of increasing di
 ---
 
 ## REPOSITORY STRUCTURE
+
+    imperial-ml-capstone/
+        notebooks/              Stage 1 ML technique notebooks
+        data/                   Polish bankruptcy dataset and feature map
+        stage2_bbo/
+            data/               Function data per module
+            notebooks/          Weekly query notebooks
+            reflections/        Weekly strategy reflections
+            evidence/           Regression diagnostics and UCB analysis
+        README.md
+        data_sheet.md
+        model_card.md
