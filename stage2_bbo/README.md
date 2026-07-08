@@ -9,6 +9,8 @@
 
 Stage 2 involves optimising eight unknown black-box functions of increasing dimensionality (2D to 8D). One query is submitted per function per week (Modules 12 to 24). The goal is to find the maximum of each function through iterative, evidence-based querying.
 
+Note: the two actual Imperial requirements each week are the portal query submission and the ~700-word discussion board reflection. The evidence workbooks, diagnostics scripts, and scenario/ensemble analyses referenced throughout this README are personal working assessment tooling used to support and document each week's decision - not a capstone deliverable in themselves, kept here for personal rigor and portfolio value.
+
 ---
 
 ## Query Strategy (current, updated through Week 5)
