@@ -66,37 +66,51 @@ Full results and RAG scorecard are generated in notebooks/05_xgboost_shap_audit_
 
 ---
 
-## STAGE 2 — BBO CHALLENGE
-
-Black-box optimisation challenge across eight unknown functions of increasing dimensionality (2D to 8D). One query submitted per function per week from Module 12 to Module 24.
-
-**Method:** Gaussian Process surrogate with UCB acquisition (beta=2.0). 8,000 candidates evaluated per function per week. Regression diagnostics (R², Shapiro-Wilk, skewness, kurtosis, Durbin-Watson, p-values per coefficient) used to validate linear structure before acting on beta coefficients. Only statistically significant inputs (p below 0.05) inform the regression query direction. Where regression fails any diagnostic gate, GP-UCB is used.
-
-**Weekly progress, queries, evidence and reflections** are documented in stage2_bbo/.
-
-| Function | Dims | Description |
-|----------|------|-------------|
-| F1 | 2D | Radiation field detection |
-| F2 | 2D | Noisy ML log-likelihood |
-| F3 | 3D | Drug discovery |
-| F4 | 4D | Warehouse allocation |
-| F5 | 4D | Chemical yield optimisation |
-| F6 | 5D | Recipe scoring |
-| F7 | 6D | ML hyperparameter tuning |
-| F8 | 8D | Neural network tuning |
-
----
-
-## REPOSITORY STRUCTURE
-
-    imperial-ml-capstone/
-        notebooks/              Stage 1 ML technique notebooks
-        data/                   Polish bankruptcy dataset and feature map
-        stage2_bbo/
-            data/               Function data per module
-            notebooks/          Weekly query notebooks
-            reflections/        Weekly strategy reflections
-            evidence/           Regression diagnostics and UCB analysis
-        README.md
-        data_sheet.md
-        model_card.md
+Stage 2 — BBO Challenge (Modules 12–24)
+Current round: 4 of 13 complete. W4 queries submitted, results pending.
+Running bests after Round 3
+Function	Description	Initial best	Current best	Gain vs initial
+F1 (2D)	Radiation field detection	0.000	0.000	No signal found
+F2 (2D)	Noisy ML log-likelihood	0.611	0.611	Unrepeated initial spike
+F3 (3D)	Drug discovery	-0.035	-0.022	+0.013
+F4 (4D)	Warehouse allocation	-4.026	+0.390	+4.42
+F5 (4D)	Chemical yield	1088.9	4128.3	+3039.4
+F6 (5D)	Recipe scoring	-0.714	-0.546	+0.169
+F7 (6D)	ML hyperparameter tuning	1.365	2.726	+1.361
+F8 (8D)	Neural network tuning	9.598	9.846	+0.248
+Week 4 (Module 15) portal strings
+```
+F1: 0.050000-0.950000
+F2: 0.691130-0.898575
+F3: 0.390888-0.247459-0.445221
+F4: 0.436185-0.389492-0.378432-0.414376
+F5: 0.966254-0.954711-0.973370-0.958107
+F6: 0.050000-0.500000-0.500000-0.950000-0.050000
+F7: 0.008484-0.134504-0.272871-0.262378-0.266104-0.759966
+F8: 0.044068-0.389868-0.184727-0.160732-0.755472-0.375973-0.216312-0.508971
+```
+Methodology (as of Round 4)
+Surrogate model: Gaussian Process with kernel selected per function by
+leave-one-out Q2 cross-validation. Four kernels tested each round: RBF,
+Matérn-3/2, Matérn-5/2, Mixture RBF. Current assignments: Mixture RBF for F4
+(Q2=0.976), Matérn-5/2 for F5 (Q2=0.912) and F7 (Q2=0.888), RBF for F8 (Q2=0.915).
+Acquisition functions: UCB primary. Expected Improvement and Probability of
+Improvement tested alongside for exploitation-phase functions. UCB, EI, and PI
+agree on identical query for F5 — strongest available confirmation of direction.
+Candidate generation: Sobol quasi-random sequences (16,000 candidates).
+Five-seed stability check applied; stable functions use 5-seed mean, unstable
+use best individual seed.
+Trust regions: Symmetric L2 ball constraints applied to F3 (r=0.20, first
+positive predicted improvement) and F8 (r=0.40, UCB=EI agree within ball).
+Regression: Applied to F6 this round — first clean four-gate pass (R2=0.738,
+DW=1.917, Shapiro-Wilk p=0.400). Significant predictors: x1 negative, x4 positive,
+x5 negative.
+Gradient ascent: L-BFGS-B refinement of UCB argmax for exploitation-phase
+functions. Improved F7 acquisition score from 3.117 to 3.423.
+4-Corners (model-free): Applied to F1 where GP is ineligible (Q2=-0.198)
+and all 14 observations return near-zero output. Top-left corner (x1=0.05, x2=0.95)
+is the most unexplored region by L2 distance from all prior observations.
+Evidence and reflections
+All evidence workbooks, reflection documents, and query records are in `stage2_bbo/`.
+Initial Imperial-provided datasets (n=10–40 per function) are in
+`stage2_bbo/data/initial/`.
