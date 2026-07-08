@@ -96,11 +96,11 @@ Note: reflections are posted to the Imperial discussion board, which is the actu
 
 | Module | Week | Functions improved | Notes |
 |--------|------|----------------------|-------|
-| 12 | 1 | F4, F5, F6, F7, F8 (marginal) | Baseline queries; F1, F2, F3 no improvement or worse |
+| 12 | 1 | F4, F5 (dramatic), F6, F7, F8 (marginal) | Baseline queries; F1, F2, F3 no improvement or worse |
 | 13 | 2 | F3, F4, F5, F6, F7 | F8's regression query failed despite passing all four gates - this is what established the FORCE_GP rule |
-| 14 | 3 | F5 (dramatic) | Five-seed averaging formalised this week |
+| 14 | 3 | F5 (dramatic), F8 (marginal) | Five-seed averaging formalised this week |
 | 15 | 4 | F2, F5, F8 (new bests) | F1 still at noise floor after 4 rounds; F3, F4, F6, F7 went backwards this round. Sobol candidate generation (replacing LHS) and the 12,000 candidate default established this week |
-| 16 | 5 | Pending | Queries finalised, not yet submitted |
+| 16 | 5 | Pending | Queries submitted, pending results |
 
 *Table updated each week as results are returned.*
 
