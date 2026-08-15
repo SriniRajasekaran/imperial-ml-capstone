@@ -1,79 +1,48 @@
 # Stage 2 — BBO Challenge
 
-**Author:** Srini Rajasekaran  
-**Programme:** Imperial College London — Professional Certificate in ML & AI
+This folder contains all artefacts for the Stage 2 Black-Box Optimisation (BBO) capstone challenge (Modules 12–25, Imperial College London Professional Certificate in ML & AI).
 
----
-
-## Overview
-
-Stage 2 involves optimising eight unknown black-box functions of increasing dimensionality (2D to 8D). One query is submitted per function per week (Modules 12 to 24). The goal is to find the maximum of each function through iterative, evidence-based querying.
-
----
-
-## Query Strategy
-
-Two methods are evaluated each week before selecting a final query:
-
-**1. Multivariate OLS Regression**
-Fitted with standardised inputs. Four diagnostic gates must pass before using regression:
-- R² above 0.30
-- Normal residuals (Shapiro-Wilk p above 0.05, skewness near zero, kurtosis near zero)
-- No autocorrelation (Durbin-Watson between 1.5 and 2.5)
-- Predicted y exceeds current best
-
-Only statistically significant beta coefficients (p below 0.05) are used to set query direction. Insignificant inputs are set to 0.50.
-
-**2. Gaussian Process with UCB Acquisition**
-UCB(x) = GP mean(x) + beta x GP std(x)
-
-Beta=2.0 (Week 1) corresponds to the 95th percentile of the GP predictive distribution. 8,000 random candidates are evaluated per function. Beta is adjusted as data accumulates.
-
----
-
-## Repository Structure
+## Structure
 
 ```
 stage2_bbo/
-    data/
-        module_12/          # Initial 10-40 data points per function
-        module_13/          # Updated after Week 2 results
-        ...
-    notebooks/
-        module_12_week1_queries.ipynb   # Full analysis and query generation
-        module_13_week2_queries.ipynb   # Added each week
-        ...
-    reflections/
-        module_12_reflection.md         # Posted to Imperial discussion board
-        module_13_reflection.md
-        ...
-    evidence/
-        module_12_submission_evidence.xlsx    # 8,000 candidate UCB analysis
-        module_12_regression_diagnostics.xlsx # Full regression diagnostics
-        module_12_regression_ready.xlsx       # Excel regression input layout
+├── reflections/          Weekly discussion board reflections (Modules 12–22)
+├── evidence/             Evidence workbooks and master tracker
+├── datasheet_bbo_dataset.md    Dataset documentation (Module 21.2)
+├── model_card_bbo_optimiser.md  Approach documentation (Module 21.2)
+└── README.md
 ```
 
----
+## Key documents
 
-## Weekly Progress
+| Document | Description |
+|----------|-------------|
+| [datasheet_bbo_dataset.md](datasheet_bbo_dataset.md) | Datasheet documenting the BBO query dataset (composition, collection, preprocessing, uses) |
+| [model_card_bbo_optimiser.md](model_card_bbo_optimiser.md) | Model card for the GP-UCB optimisation strategy (overview, performance, assumptions, ethics) |
 
-| Module | Functions improved | Method | Notes |
-|--------|-------------------|--------|-------|
-| 12 | Pending results | Regression (F6, F8), GP-UCB (rest) | Week 1 baseline |
+## Campaign summary (after 10 rounds)
 
-*Table updated each week as results are returned.*
+| Function | Dims | Initial best | Campaign best | Round achieved |
+|----------|------|-------------|--------------|----------------|
+| F1 — Radiation detection | 2 | 0.000 | 1.453 | Round 7 |
+| F2 — ML log-likelihood | 2 | 0.611 | 0.746 | Round 6 |
+| F3 — Drug discovery | 3 | −0.035 | −0.007 | Round 8 |
+| F4 — Warehouse allocation | 4 | −4.026 | +0.492 | Round 9 |
+| F5 — Chemical yield | 4 | 1089 | 8561 | Round 10 |
+| F6 — Recipe scoring | 5 | −0.714 | −0.211 | Round 10 |
+| F7 — Hyperparameter tuning | 6 | 1.365 | 3.008 | Round 6 |
+| F8 — Neural net tuning | 8 | 9.598 | 9.971 | Round 9 |
 
----
+All eight functions improved. F5 set new bests in 9 of 10 rounds.
 
-## Function Reference
+## Core methodology
 
-| Function | Dims | Description |
-|----------|------|-------------|
-| F1 | 2D | Radiation field detection |
-| F2 | 2D | Noisy ML log-likelihood |
-| F3 | 3D | Drug discovery (side effects) |
-| F4 | 4D | Warehouse allocation |
-| F5 | 4D | Chemical yield optimisation |
-| F6 | 5D | Recipe scoring |
-| F7 | 6D | ML hyperparameter tuning |
-| F8 | 8D | Neural network tuning |
+- **Surrogate:** Gaussian Process (scikit-learn), kernel selected weekly by LOO Q² comparison (RBF vs Matern-3/2 vs Matern-5/2)
+- **Acquisition:** UCB (mu + beta × sigma) for F1–F7; PI for F8 (switched Round 9 after 7/7 hindsight backtest)
+- **Candidates:** Scrambled Sobol sequences, 2^15 default, escalated to 2^17 where not converged
+- **Challenger:** OLS regression with four eligibility gates run weekly; used when all gates pass (except FORCE_GP functions)
+- **Seed stability:** Five seeds per function per round (fn_index × 100 scheme); median or corroborated-best selection
+
+## Reflections
+
+All discussion board reflections are in the `reflections/` folder, one per module.
