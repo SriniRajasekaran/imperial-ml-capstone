@@ -1,116 +1,152 @@
-# Automated Model Risk Audit Toolkit with Quantitative Explainability Diagnostics
+# Imperial College London — Professional Certificate in ML & AI
+## Capstone Repository
 
-**Imperial College London — Professional Certificate in Machine Learning and Artificial Intelligence**
-**Author:** Srini Rajasekaran
-
-
----
-
-## NON-TECHNICAL EXPLANATION
-
-Banks use machine learning to predict company bankruptcies, but these models are often opaque. Regulators increasingly require banks to not just perform well, but to explain why a model makes each decision and to demonstrate that those explanations are stable and consistent over time. This project builds an automated audit toolkit that checks whether an ML credit model's explanations are reliable, measuring their stability across samples, drift over time, and sensitivity to small input changes. The novel contribution is the Explanation Sensitivity Ratio (ESR): a new metric that detects when explanations are more fragile than predictions, a risk invisible to standard performance monitoring.
+**Owner:** Srini Rajasekaran
+**Programme:** Imperial College London Professional Certificate in Machine Learning & AI
 
 ---
 
-## DATA
+## Overview
 
-**Dataset:** Polish Companies Bankruptcy Data
-**Source:** UCI Machine Learning Repository, ID 365
-**Citation:** Zieba, M., Tomczak, S.K., Tomczak, J.M. (2016). Ensemble Boosted Trees with Synthetic Features Generation in Application to Bankruptcy Prediction. Expert Systems with Applications, 58, 93-101.
-
-The dataset contains 10,503 company-year observations with 64 financial ratio features (leverage, profitability, liquidity, coverage ratios) and a binary bankruptcy label. The class distribution is approximately 4.9% bankrupt and 95.1% solvent, reflecting a realistic wholesale credit portfolio. Approximately 10% of feature values are missing, consistent with real-world incomplete financial filings.
-
-The dataset is a public academic resource available under UCI open-access terms. It is described and linked here: https://archive.ics.uci.edu/dataset/365/polish+companies+bankruptcy+data
+This repository covers both stages of the capstone project. Stage 1 is a free-exploration credit model risk audit toolkit. Stage 2 is a structured black-box optimisation challenge run over 13 weekly query cycles.
 
 ---
 
-## MODEL
+## Stage 1 — Credit Model Risk Audit Toolkit
 
-**Primary model:** XGBoost Gradient Boosted Trees (binary classification)
+### Problem Statement
 
-XGBoost was selected as the primary model under audit for three reasons. First, it is industry-standard for credit risk in financial services, making the audit findings directly relevant to real-world model governance. Second, gradient boosted trees naturally handle correlated, skewed financial ratios without parametric assumptions, confirmed by systematic comparison against Logistic Regression, Naive Bayes, SVM, KNN, and Random Forest, where XGBoost consistently achieved the highest AUC-ROC. Third, XGBoost is compatible with TreeSHAP, enabling exact SHAP value computation essential for the quantitative audit diagnostics.
+Corporate bankruptcy prediction using financial ratios is a well-established credit risk problem. The harder challenge is understanding and auditing the model's behaviour — ensuring its explanations are stable, consistent, and trustworthy enough for use in a governance context.
 
-A Logistic Regression model is also maintained as a SHAP calibration anchor. Material divergence between LR and XGBoost SHAP values signals non-linear behaviour requiring further examination.
+This stage builds an Automated Model Risk Audit Toolkit with quantitative explainability diagnostics, directly motivated by SR 26-2, PRA SS1/23, EU AI Act Article 13, and NIST AI RMF governance frameworks.
 
----
+### Data
 
-## HYPERPARAMETER OPTIMISATION
+Polish Companies Bankruptcy dataset (UCI Machine Learning Repository, ID 365). Approximately 10,500 company observations, 64 financial ratios, binary bankruptcy label. Roughly 5% of companies are bankrupt — a realistic wholesale credit portfolio default rate.
 
-| Hyperparameter | Value | Rationale |
-|---------------|-------|-----------|
-| n_estimators | 300 | Sufficient trees for stable convergence |
-| max_depth | 5 | Balances complexity against overfitting |
-| learning_rate | 0.05 | Low rate with higher n_estimators |
-| subsample | 0.8 | Row subsampling reduces overfitting |
-| colsample_bytree | 0.8 | Feature subsampling per tree |
-| scale_pos_weight | 19.3 | Addresses 1:19 class imbalance |
+### Models
 
-SMOTE oversampling (k=5) applied to training fold only. RobustScaler used for feature scaling. Median imputation applied for missing values, fit on training data only to prevent data leakage.
+Logistic Regression, KNN, Decision Trees, Random Forest, Gradient Boosting, Naive Bayes, SVM, and XGBoost. XGBoost (n_estimators=300, max_depth=5, learning_rate=0.05, subsample=0.8, colsample_bytree=0.8, scale_pos_weight=19.3) is the primary model under audit. Logistic Regression is maintained as a SHAP calibration anchor — its coefficients are a closed-form analogue of SHAP values under linearity, so divergence between LR and XGBoost SHAP signals non-linear behaviour requiring investigation.
 
----
+### Hyperparameter Optimisation
 
-## RESULTS
+Grid search over max_depth (3, 5, 7), n_estimators (100, 200, 300), and learning_rate (0.01, 0.05, 0.1) using 5-fold stratified cross-validation. SMOTE (k=5) applied to training folds only. RobustScaler applied to all features; medians imputed on training data only.
 
-The XGBoost model achieves strong discrimination on the held-out test set. AUC-ROC and F1 on the minority class are the primary metrics. Accuracy is not reported as a naive classifier predicting all solvent achieves 95.1% accuracy, making it meaningless at this class prevalence.
+### Audit Diagnostics (Novel Contribution)
 
-**Audit Findings Scorecard**
+Four quantitative diagnostics with calibrated RAG thresholds:
 
-| Diagnostic | Metric | Amber | Red |
-|-----------|--------|-------|-----|
-| A: Explanation Stability | Bootstrap variance (normalised) | >0.15 | >0.30 |
-| B: Explanation Drift | Wasserstein distance | >0.10 | >0.25 |
-| C: ESR (Novel contribution) | Explanation Sensitivity Ratio | >1.5 | >3.0 |
-| D: Local Consistency | Behavioural cluster count | >2 clusters | N/A |
+**A — Explanation Stability**
+Bootstrap variance of SHAP attributions across 100 resamples. Amber: variance > 0.15. Red: variance > 0.30.
 
-Full results and RAG scorecard are generated in notebooks/05_xgboost_shap_audit_toolkit.ipynb.
+**B — Explanation Drift**
+Wasserstein, KL, and KS distances between SHAP distributions across time-partitioned subsets. Amber: distance > 0.10. Red: distance > 0.25.
 
----
+**C — Explanation Sensitivity Ratio (ESR) — Novel Contribution**
+ESR_i = |dSHAP_i(epsilon)| / (|S_i| + delta). Measures how sensitive a feature's explanation is to a small perturbation relative to the magnitude of its explanation. Amber: ESR > 1.5. Red: ESR > 3.0. A RED finding was produced on the net financial debt ratio feature in the primary audit run.
 
-Stage 2 — BBO Challenge (Modules 12–24)
-Current round: 4 of 13 complete. W4 queries submitted, results pending.
-Running bests after Round 3
-Function	Description	Initial best	Current best	Gain vs initial
-F1 (2D)	Radiation field detection	0.000	0.000	No signal found
-F2 (2D)	Noisy ML log-likelihood	0.611	0.611	Unrepeated initial spike
-F3 (3D)	Drug discovery	-0.035	-0.022	+0.013
-F4 (4D)	Warehouse allocation	-4.026	+0.390	+4.42
-F5 (4D)	Chemical yield	1088.9	4128.3	+3039.4
-F6 (5D)	Recipe scoring	-0.714	-0.546	+0.169
-F7 (6D)	ML hyperparameter tuning	1.365	2.726	+1.361
-F8 (8D)	Neural network tuning	9.598	9.846	+0.248
-Week 4 (Module 15) portal strings
+**D — Local Consistency**
+k-means clustering of local SHAP vectors to identify behaviourally inconsistent subpopulations. More than 2 clusters triggers a governance review flag.
+
+### Regulatory Alignment
+
+- PRA SS1/23 Section 3.4 — explanation drift diagnostic
+- SR 26-2 Section IV — independent challenge and ESR
+- EU AI Act Article 13 — local SHAP and transparency requirements
+- NIST AI RMF GOVERN 1.2 — stability and stress-shift monitoring
+
+Note: SR 11-7 was superseded by SR 26-2 in April 2026.
+
+### Repository Structure (Stage 1)
+
 ```
-F1: 0.050000-0.950000
-F2: 0.691130-0.898575
-F3: 0.390888-0.247459-0.445221
-F4: 0.436185-0.389492-0.378432-0.414376
-F5: 0.966254-0.954711-0.973370-0.958107
-F6: 0.050000-0.500000-0.500000-0.950000-0.050000
-F7: 0.008484-0.134504-0.272871-0.262378-0.266104-0.759966
-F8: 0.044068-0.389868-0.184727-0.160732-0.755472-0.375973-0.216312-0.508971
+credit_model_risk_audit_toolkit/
+    notebooks/
+        01_eda.ipynb
+        02_preprocessing.ipynb
+        03_knn_trees_ensembles.ipynb
+        04_nb_lr_svm.ipynb
+        05_xgboost_shap_audit.ipynb
+    data/
+        polish_bankruptcy_data.arff
+        feature_map.csv
+    data_sheet.md
+    model_card.md
 ```
-Methodology (as of Round 4)
-Surrogate model: Gaussian Process with kernel selected per function by
-leave-one-out Q2 cross-validation. Four kernels tested each round: RBF,
-Matérn-3/2, Matérn-5/2, Mixture RBF. Current assignments: Mixture RBF for F4
-(Q2=0.976), Matérn-5/2 for F5 (Q2=0.912) and F7 (Q2=0.888), RBF for F8 (Q2=0.915).
-Acquisition functions: UCB primary. Expected Improvement and Probability of
-Improvement tested alongside for exploitation-phase functions. UCB, EI, and PI
-agree on identical query for F5 — strongest available confirmation of direction.
-Candidate generation: Sobol quasi-random sequences (16,000 candidates).
-Five-seed stability check applied; stable functions use 5-seed mean, unstable
-use best individual seed.
-Trust regions: Symmetric L2 ball constraints applied to F3 (r=0.20, first
-positive predicted improvement) and F8 (r=0.40, UCB=EI agree within ball).
-Regression: Applied to F6 this round — first clean four-gate pass (R2=0.738,
-DW=1.917, Shapiro-Wilk p=0.400). Significant predictors: x1 negative, x4 positive,
-x5 negative.
-Gradient ascent: L-BFGS-B refinement of UCB argmax for exploitation-phase
-functions. Improved F7 acquisition score from 3.117 to 3.423.
-4-Corners (model-free): Applied to F1 where GP is ineligible (Q2=-0.198)
-and all 14 observations return near-zero output. Top-left corner (x1=0.05, x2=0.95)
-is the most unexplored region by L2 distance from all prior observations.
-Evidence and reflections
-All evidence workbooks, reflection documents, and query records are in `stage2_bbo/`.
-Initial Imperial-provided datasets (n=10–40 per function) are in
-`stage2_bbo/data/initial/`.
+
+---
+
+## Stage 2 — Black-Box Optimisation Challenge
+
+### Overview
+
+Eight unknown functions of increasing dimensionality (F1: 2D to F8: 8D). One portal query per function per week across 13 weekly cycles (Modules 12-24). All functions are maximisation tasks, including those with negative outputs — the portal transformed minimisation objectives into maximisation by negation.
+
+### Surrogate Methods
+
+**Gaussian Process with UCB Acquisition**
+Primary surrogate. UCB(x) = GP_mean(x) + beta x GP_std(x). Beta starts at 2.0 (exploration) and decreases to 0.5 (exploitation) across the campaign. The C2 Kernel Challenger selects the best kernel from RBF, Matern-3/2, and Matern-5/2 using leave-one-out cross-validation Q2 on the full combined dataset each week — run as the mandatory first step of every session.
+
+**Probability of Improvement (PI) Acquisition**
+Permanently applied to F8 after a 7/7 historical backtest confirmed PI beats UCB across all prior rounds.
+
+**OLS Regression (C1 Challenger)**
+Tested weekly against the GP. Four eligibility gates: R2 > 0.30, Shapiro-Wilk p > 0.05, Durbin-Watson in [1.5, 2.5], predicted y exceeding current best. Used in early rounds; progressively superseded by the GP as surface structure became clearer.
+
+### Candidate Generation
+
+Sobol low-discrepancy sequences — primary generator throughout the campaign, chosen for their space-filling properties in high-dimensional unit hypercubes, consistent with their use in quasi-Monte Carlo integration in derivatives model risk. Default pool: 2^14 candidates per session.
+
+### Visual Inspection Layer
+
+Weekly HTML dashboards tracked output trajectories and input coordinate movements across successive queries. Plotting X-coordinate trajectories per function made drift patterns visible before statistical tests flagged them, and directly influenced several query decisions. Dashboards were extended to include SHAP-based function performance assessment in the final sessions.
+
+### Key Methodological Findings
+
+**Combined dataset is mandatory.** Initial data plus all weekly observations must always be used together. The weekly-only dataset produces signal reversals: F6 x4 inverts (r = +0.617 combined vs r = -0.30 weekly), F7 x1 inverts (r = -0.634 combined vs r = +0.33 weekly), F8 x2 inverts — confirmed by bootstrap analysis.
+
+**The most important diagnostic finding** was the F5 x1 signal reversal. The initial 20-point dataset gave r = -0.28 for x1. The combined dataset gives r = +0.75. Root cause: the initial design covered x1 only up to 0.84, leaving the high-yield corner entirely unsampled. Six consecutive new campaign bests followed once the correct direction was confirmed.
+
+**Professional practice analogies applied directly:** four-corners testing from derivatives stress testing; trust regions from domain-of-model-validity bounds; scenario matrix analysis from volatility surface construction; Sobol sequences from quasi-Monte Carlo in structured products risk.
+
+### Campaign Results
+
+| Fn | Description | Dims | Initial Best | Campaign Best | Best Week | Gain |
+|----|------------|------|-------------|--------------|-----------|------|
+| F1 | Radiation field detection | 2 | 0.000000 | 1.452581 | Week 7 | Located spike |
+| F2 | Noisy ML log-likelihood | 2 | 0.611205 | 0.745754 | Week 6 | +22% |
+| F3 | Drug discovery (side-effect min) | 3 | -0.034835 | -0.007182 | Week 8 | +79% |
+| F4 | Warehouse allocation (cost min) | 4 | -4.025542 | +0.491925 | Week 9 | +112% |
+| F5 | Chemical yield optimisation | 4 | 1,088.860 | 8,636.766 | Week 12 | +694% |
+| F6 | Recipe scoring | 5 | -0.714265 | -0.094440 | Week 12 | +87% |
+| F7 | ML hyperparameter tuning | 6 | 1.364968 | 3.148939 | Week 12 | +130% |
+| F8 | Neural network tuning | 8 | 9.598482 | 9.983487 | Week 12 | +4% |
+
+Week 13 (Module 24) results pending. Table will be updated on receipt.
+
+### Repository Structure (Stage 2)
+
+```
+stage2_bbo/
+    src/                         GP surrogate, diagnostics, data loading, session runner
+    notebooks/                   Full diagnostic battery notebook with all outputs rendered
+    reflections/                 Weekly discussion board posts, Modules 12-24
+    evidence/
+        week01/ ... week13/      Evidence workbooks, dashboards, SHAP assessments
+    datasheet_bbo_dataset.md
+    model_card_bbo_optimiser.md
+    README.md
+```
+
+---
+
+## AI Use Disclosure
+
+AI tools were used to support code development, analysis, and drafting in this capstone, in accordance with Imperial College London's confirmed guidance (ticket 2821471). See AI_USE_DISCLOSURE.md for the complete working framework.
+
+---
+
+## Contact
+
+Srini Rajasekaran
+Imperial College London Professional Certificate in ML & AI, 2025-2026
