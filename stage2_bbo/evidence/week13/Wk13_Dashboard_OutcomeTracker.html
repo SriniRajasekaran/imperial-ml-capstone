@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BBO Wk13 - Outcome Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0d1b2a;color:#e0e8f0;padding:14px;font-size:13px}
+h1{color:#4fc3f7;font-size:1.25rem;margin-bottom:10px;border-bottom:2px solid #1e3a5f;padding-bottom:7px}
+h2{color:#64b5f6;font-size:1rem;margin:14px 0 8px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.card{background:#111d2e;border:1px solid #1e3a5f;border-radius:7px;padding:12px}
+.card h3{font-size:0.85rem;color:#64b5f6;margin-bottom:8px;border-bottom:1px solid #1e3a5f;padding-bottom:5px}
+.fn-card{background:#111d2e;border:1px solid #1e3a5f;border-radius:7px;padding:11px}
+.fn-card h4{font-size:0.85rem;color:#64b5f6;margin-bottom:7px}
+.row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #162032;font-size:0.8rem}
+.badge{display:inline-block;padding:1px 7px;border-radius:8px;font-size:0.72rem;font-weight:bold}
+.bg{background:#1b4332;color:#6fcf97}.ba{background:#4a3300;color:#f2c94c}.br{background:#4a1010;color:#eb5757}
+.portal{background:#0d2137;border:1px solid #1976d2;border-radius:5px;padding:6px;
+        font-family:monospace;font-size:0.72rem;word-break:break-all;color:#81d4fa;margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:0.8rem}
+th{background:#1e3a5f;padding:6px;text-align:center;color:#90caf9;border:1px solid #1a2840}
+td{padding:5px;text-align:center;border:1px solid #1a2840}
+.nb{background:#1b4332;color:#4caf50;font-weight:bold}
+.ns{color:#37474f}
+canvas{max-height:210px}
+</style>
+</head>
+<body>
+<h1>BBO Campaign Week 13 - Outcome Tracker &amp; Diagnostics <span style="font-size:0.75rem;color:#546e7a">| Srini Rajasekaran | August 2026</span></h1>
+<h2>Campaign Summary by Function</h2>
+<div class="g4" id="fn-cards"></div>
+<div class="g2">
+<div class="card"><h3>Normalised Running Best - All Functions (0%=init, 100%=campaign best)</h3><canvas id="normChart"></canvas></div>
+<div class="card"><h3>GP vs NW Kernel LOO Q2 Comparison</h3><canvas id="q2Chart"></canvas></div>
+</div>
+<div class="card" style="margin-bottom:14px">
+<h3>Complete Weekly Results (* = new campaign best)</h3>
+<div style="overflow-x:auto" id="tbl"></div>
+</div>
+<div class="g2">
+<div class="card"><h3>Backtest: Directional Accuracy GP (last 8 weeks)</h3><canvas id="btChart"></canvas></div>
+<div class="card"><h3>Bootstrap: Signal Reversals - Weekly-Only vs Combined</h3><div id="rev"></div></div>
+</div>
+<script>
+const SUM=[{"fn": 1, "desc": "Radiation Field", "pct": 145258.1, "cb": 1.452581, "ib": 0.0, "best_wk": 7, "portal": "0.633407-0.631618", "q2_gp": 0.117, "q2_nw": -0.027, "nw_wins": false}, {"fn": 2, "desc": "ML Log-Likelihood", "pct": 22.0, "cb": 0.745754, "ib": 0.611205, "best_wk": 6, "portal": "0.737498-0.890955", "q2_gp": 0.255, "q2_nw": 0.155, "nw_wins": false}, {"fn": 3, "desc": "Drug Discovery", "pct": 79.4, "cb": -0.007182, "ib": -0.034835, "best_wk": 8, "portal": "0.999000-0.450000-0.440000", "q2_gp": 0.096, "q2_nw": 0.043, "nw_wins": false}, {"fn": 4, "desc": "Warehouse Alloc.", "pct": 112.2, "cb": 0.491925, "ib": -4.025542, "best_wk": 9, "portal": "0.410600-0.385200-0.373400-0.426300", "q2_gp": 0.567, "q2_nw": 0.758, "nw_wins": true}, {"fn": 5, "desc": "Chemical Yield", "pct": 693.2, "cb": 8636.766, "ib": 1088.86, "best_wk": 12, "portal": "0.999900-0.999900-0.999900-0.999900", "q2_gp": 0.816, "q2_nw": 0.967, "nw_wins": true}, {"fn": 6, "desc": "Recipe Scoring", "pct": 86.8, "cb": -0.09444, "ib": -0.714265, "best_wk": 12, "portal": "0.424979-0.317088-0.654782-0.731503-0.063066", "q2_gp": 0.32, "q2_nw": 0.642, "nw_wins": true}, {"fn": 7, "desc": "ML Hyperparam", "pct": 130.7, "cb": 3.148939, "ib": 1.364968, "best_wk": 12, "portal": "0.123775-0.177407-0.433382-0.231252-0.297972-0.681083", "q2_gp": 0.658, "q2_nw": 0.855, "nw_wins": true}, {"fn": 8, "desc": "Neural Net Tuning", "pct": 4.0, "cb": 9.983487, "ib": 9.598482, "best_wk": 12, "portal": "0.061026-0.185625-0.155488-0.134396-0.680561-0.518353-0.233223-0.657957", "q2_gp": 0.182, "q2_nw": 0.606, "nw_wins": true}];
+const GRID={"1": {"1": {"v": -0.0, "is_new": false}, "2": {"v": 0.1078, "is_new": false}, "3": {"v": -0.0433, "is_new": false}, "4": {"v": -0.0055, "is_new": true}, "5": {"v": 2044.217, "is_new": true}, "6": {"v": -0.6294, "is_new": true}, "7": {"v": 2.089, "is_new": true}, "8": {"v": 9.7523, "is_new": true}}, "2": {"1": {"v": -0.0, "is_new": false}, "2": {"v": 0.0681, "is_new": false}, "3": {"v": -0.0215, "is_new": true}, "4": {"v": 0.3898, "is_new": true}, "5": {"v": 2619.616, "is_new": true}, "6": {"v": -0.5455, "is_new": true}, "7": {"v": 2.7262, "is_new": true}, "8": {"v": 9.6511, "is_new": false}}, "3": {"1": {"v": 0.0, "is_new": false}, "2": {"v": 0.1532, "is_new": false}, "3": {"v": -0.0458, "is_new": false}, "4": {"v": -0.967, "is_new": false}, "5": {"v": 4128.3404, "is_new": true}, "6": {"v": -0.7702, "is_new": false}, "7": {"v": 2.6067, "is_new": false}, "8": {"v": 9.8464, "is_new": true}}, "4": {"1": {"v": 0.0, "is_new": false}, "2": {"v": 0.5965, "is_new": false}, "3": {"v": -0.0328, "is_new": false}, "4": {"v": 0.3111, "is_new": false}, "5": {"v": 6172.3297, "is_new": true}, "6": {"v": -0.9138, "is_new": false}, "7": {"v": 2.3743, "is_new": false}, "8": {"v": 9.9094, "is_new": true}}, "5": {"1": {"v": -0.0, "is_new": false}, "2": {"v": 0.0995, "is_new": false}, "3": {"v": -0.0284, "is_new": false}, "4": {"v": -0.438, "is_new": false}, "5": {"v": 5959.1256, "is_new": false}, "6": {"v": -0.6344, "is_new": false}, "7": {"v": 2.641, "is_new": false}, "8": {"v": 9.9463, "is_new": true}}, "6": {"1": {"v": 0.0, "is_new": false}, "2": {"v": 0.7458, "is_new": true}, "3": {"v": -0.0127, "is_new": true}, "4": {"v": -0.4832, "is_new": false}, "5": {"v": 6304.967, "is_new": true}, "6": {"v": -0.7062, "is_new": false}, "7": {"v": 3.0078, "is_new": true}, "8": {"v": 9.9452, "is_new": false}}, "7": {"1": {"v": 1.4526, "is_new": true}, "2": {"v": 0.5227, "is_new": false}, "3": {"v": -0.0406, "is_new": false}, "4": {"v": -0.337, "is_new": false}, "5": {"v": 6945.778, "is_new": true}, "6": {"v": -0.2899, "is_new": true}, "7": {"v": 2.46, "is_new": false}, "8": {"v": 9.8116, "is_new": false}}, "8": {"1": {"v": -0.0, "is_new": false}, "2": {"v": 0.1018, "is_new": false}, "3": {"v": -0.0072, "is_new": true}, "4": {"v": 0.2378, "is_new": false}, "5": {"v": 7510.1638, "is_new": true}, "6": {"v": -0.7377, "is_new": false}, "7": {"v": 2.984, "is_new": false}, "8": {"v": 9.9389, "is_new": false}}, "9": {"1": {"v": 0.6729, "is_new": false}, "2": {"v": 0.3946, "is_new": false}, "3": {"v": -0.0297, "is_new": false}, "4": {"v": 0.4919, "is_new": true}, "5": {"v": 7545.6348, "is_new": true}, "6": {"v": -0.3551, "is_new": false}, "7": {"v": 2.6659, "is_new": false}, "8": {"v": 9.9713, "is_new": true}}, "10": {"1": {"v": 0.0216, "is_new": false}, "2": {"v": 0.5433, "is_new": false}, "3": {"v": -0.0262, "is_new": false}, "4": {"v": 0.1047, "is_new": false}, "5": {"v": 8561.0542, "is_new": true}, "6": {"v": -0.2106, "is_new": true}, "7": {"v": 2.7525, "is_new": false}, "8": {"v": 9.9682, "is_new": false}}, "11": {"1": {"v": 0.0, "is_new": false}, "2": {"v": 0.5349, "is_new": false}, "3": {"v": -0.0294, "is_new": false}, "4": {"v": 0.4289, "is_new": false}, "5": {"v": 8618.5411, "is_new": true}, "6": {"v": -0.3697, "is_new": false}, "7": {"v": 2.9682, "is_new": false}, "8": {"v": 9.9795, "is_new": true}}, "12": {"1": {"v": 0.4907, "is_new": false}, "2": {"v": 0.0174, "is_new": false}, "3": {"v": -0.0227, "is_new": false}, "4": {"v": 0.3503, "is_new": false}, "5": {"v": 8636.7663, "is_new": true}, "6": {"v": -0.0944, "is_new": true}, "7": {"v": 3.1489, "is_new": true}, "8": {"v": 9.9835, "is_new": true}}};
+const NORM={"1": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], "2": [0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], "3": [0.0, 48.4, 48.4, 48.4, 48.4, 79.9, 79.9, 100.0, 100.0, 100.0, 100.0, 100.0], "4": [89.0, 97.7, 97.7, 97.7, 97.7, 97.7, 97.7, 97.7, 100.0, 100.0, 100.0, 100.0], "5": [12.7, 20.3, 40.3, 67.3, 67.3, 69.1, 77.6, 85.1, 85.5, 99.0, 99.8, 100.0], "6": [13.7, 27.2, 27.2, 27.2, 27.2, 27.2, 68.5, 68.5, 68.5, 81.3, 81.3, 100.0], "7": [40.6, 76.3, 76.3, 76.3, 76.3, 92.1, 92.1, 92.1, 92.1, 92.1, 92.1, 100.0], "8": [40.0, 40.0, 64.4, 80.7, 90.3, 90.3, 90.3, 90.3, 96.8, 96.8, 99.0, 100.0]};
+const BT={"4": {"n_tested": 8, "impr_rate": 0.125, "gp_acc": 0.875}, "5": {"n_tested": 8, "impr_rate": 0.875, "gp_acc": 0.125}, "6": {"n_tested": 8, "impr_rate": 0.25, "gp_acc": 0.75}, "7": {"n_tested": 8, "impr_rate": 0.125, "gp_acc": 0.875}, "8": {"n_tested": 8, "impr_rate": 0.5, "gp_acc": 0.5}};
+
+const wks=['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8','Wk9','Wk10','Wk11','Wk12'];
+const colors=['#4fc3f7','#81c784','#ffb74d','#ce93d8','#f48fb1','#80cbc4','#fff176','#ef9a9a'];
+
+// Function cards
+const fc=document.getElementById('fn-cards');
+SUM.forEach(d=>{
+  const pCls=d.pct>50?'bg':d.pct>10?'ba':'br';
+  const nwCls=d.nw_wins?'ba':'bg';
+  fc.innerHTML+=`<div class="fn-card">
+<h4>F${d.fn}: ${d.desc}</h4>
+<div class="row"><span>Init best</span><span>${d.ib}</span></div>
+<div class="row"><span>Campaign best</span><span style="color:#4caf50;font-weight:bold">${d.cb}</span></div>
+<div class="row"><span>% gain</span><span><span class="badge ${pCls}">+${d.pct}%</span></span></div>
+<div class="row"><span>GP Q2</span><span>${d.q2_gp.toFixed(3)}</span></div>
+<div class="row"><span>NW Q2</span><span><span class="badge ${nwCls}">${d.q2_nw.toFixed(3)}</span></span></div>
+<div class="portal">${d.portal}</div></div>`;
+});
+
+// Normalised
+const dsets=Array.from({length:8},(_,i)=>({label:`F${i+1}`,data:NORM[i+1],borderColor:colors[i],backgroundColor:'transparent',tension:0.3,pointRadius:3,borderWidth:2}));
+new Chart(document.getElementById('normChart'),{type:'line',data:{labels:wks,datasets:dsets},
+  options:{responsive:true,plugins:{legend:{labels:{color:'#e0e8f0',font:{size:10}}}},
+    scales:{y:{grid:{color:'#1a2840'},ticks:{color:'#8da8c2'},title:{display:true,text:'% of gain',color:'#64b5f6'}},x:{grid:{color:'#1a2840'},ticks:{color:'#8da8c2'}}}}});
+
+// Q2
+const gp_q2=[0.117,0.255,0.096,0.567,0.816,0.320,0.658,0.182];
+const nw_q2=[-0.027,0.155,0.043,0.758,0.967,0.642,0.855,0.606];
+const flabels=['F1','F2','F3','F4','F5','F6','F7','F8'];
+new Chart(document.getElementById('q2Chart'),{type:'bar',
+  data:{labels:flabels,datasets:[{label:'GP LOO Q2',data:gp_q2,backgroundColor:'rgba(33,150,243,0.8)',borderRadius:3},{label:'NW LOO Q2',data:nw_q2,backgroundColor:'rgba(76,175,80,0.8)',borderRadius:3}]},
+  options:{responsive:true,plugins:{legend:{labels:{color:'#e0e8f0'}}},
+    scales:{y:{grid:{color:'#1a2840'},ticks:{color:'#8da8c2'},title:{display:true,text:'LOO Q2',color:'#64b5f6'}},x:{grid:{color:'#1a2840'},ticks:{color:'#8da8c2'}}}}});
+
+// Table
+let th='<table><thead><tr><th>Wk</th>';
+for(let fn=1;fn<=8;fn++) th+=`<th>F${fn}</th>`;
+th+='</tr></thead><tbody>';
+for(let wk=1;wk<=12;wk++){
+  th+=`<tr><td style="font-weight:bold">${wk}</td>`;
+  for(let fn=1;fn<=8;fn++){
+    const c=GRID[wk][fn];
+    const v=c.v; const nb=c.is_new;
+    const cls=nb?'nb':(Math.abs(v)<0.0001&&fn==1?'ns':'');
+    const dp=Math.abs(v)<1000?v.toFixed(4):`${v.toFixed(1)}`;
+    th+=`<td class="${cls}">${dp}${nb?'*':''}</td>`;
+  }
+  th+='</tr>';
+}
+th+='</tbody></table><p style="font-size:0.72rem;color:#546e7a;margin-top:4px">* = new campaign best that week</p>';
+document.getElementById('tbl').innerHTML=th;
+
+// Backtest
+const bt_fns=[4,5,6,7,8];
+new Chart(document.getElementById('btChart'),{type:'bar',
+  data:{labels:bt_fns.map(f=>`F${f}`),datasets:[
+    {label:'Actual impr. rate',data:bt_fns.map(f=>Math.round(BT[f].impr_rate*100)),backgroundColor:'rgba(255,152,0,0.8)',borderRadius:3},
+    {label:'GP directional accuracy',data:bt_fns.map(f=>Math.round(BT[f].gp_acc*100)),backgroundColor:'rgba(33,150,243,0.8)',borderRadius:3}]},
+  options:{responsive:true,plugins:{legend:{labels:{color:'#e0e8f0'}}},
+    scales:{y:{max:100,grid:{color:'#1a2840'},ticks:{color:'#8da8c2',callback:v=>v+'%'},title:{display:true,text:'%',color:'#64b5f6'}},x:{grid:{color:'#1a2840'},ticks:{color:'#8da8c2'}}}}});
+
+// Reversals
+document.getElementById('rev').innerHTML=`
+<table>
+<thead><tr><th>Fn</th><th>Reversal?</th><th>Detail</th><th>Consequence</th></tr></thead>
+<tbody>
+<tr><td>F1-F5</td><td class="nb">None</td><td>No reversals</td><td>Combined = weekly</td></tr>
+<tr><td style="color:#ef9a9a;font-weight:bold">F6</td>
+<td style="background:#4a1010;color:#ef9a9a;font-weight:bold">x4+x5 REVERSAL</td>
+<td>x4: r=-0.30 wkly vs +0.617 full<br>x5: r=+0.48 wkly vs -0.737 full</td>
+<td style="color:#ef9a9a">Catastrophic if weekly-only used</td></tr>
+<tr><td style="color:#ef9a9a;font-weight:bold">F7</td>
+<td style="background:#4a1010;color:#ef9a9a;font-weight:bold">x1 REVERSAL</td>
+<td>x1: r=+0.33 wkly vs -0.634 full</td>
+<td style="color:#ef9a9a">Would push x1 high - wrong</td></tr>
+<tr><td style="color:#f2c94c;font-weight:bold">F8</td>
+<td style="background:#4a3300;color:#f2c94c">x2 reversal</td>
+<td>x2: r=+0.40 wkly vs -0.446 full</td>
+<td style="color:#f2c94c">Partial error</td></tr>
+</tbody></table>
+<p style="margin-top:8px;font-size:0.78rem;color:#a5d6a7">Combined dataset rule confirmed essential for F6, F7, F8.</p>`;
+</script></body></html>
