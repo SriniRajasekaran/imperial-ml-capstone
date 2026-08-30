@@ -1,14 +1,52 @@
-# Module 22.1 -- Week 11 BBO Reflection
+# Module 22 — Week 11 Reflection
 
-**How past query patterns have shaped this round:** The ten rounds so far have progressively separated functions into those with a legible spatial structure and those without one. For F5, every submission since Week 1 has landed in a monotonically better region, the latest at 8561. For F7, the Week 6 result of 3.008 has not been reproduced in four subsequent rounds despite targeting the same neighbourhood. These two functions sit at opposite ends of a spectrum from structure-confirmed to structure-lost, and Week 11 responds to each accordingly: F5 continues boundary relaxation into [0.990, 0.9999] across all four dimensions, while F7 abandons the trust region entirely and runs a global search.
-
-**Clusters identified and their status:** The clearest cluster is F5's high-corner region, where all four inputs above 0.985 have produced five consecutive new bests. It is the only function where a single coherent region has delivered consistent gains across every submission. F6 has a well-defined two-dimensional cluster: x4 high and x5 low, confirmed across three separate new-best results (Weeks 2, 7, and 10). Week 11 extends x4 above 0.90, territory that was previously unsampled due to a sampling artefact in the initial data. F8's cluster is defined by three negative drivers (x1, x3, x7 all low, R-squared 0.936), and the PI acquisition targets a tight trust region of plus-or-minus 0.12 around the Week 9 best. F1's situation is different: not a cluster but a ridge. The Week 10 perpendicular probe returned y=0.022 against a ridge-aligned probe that returned 0.673. Week 11 extends geometrically beyond the Week 7 peak rather than relying on a GP to locate structure it has not reliably captured. F3 has one confirmed basin (x1 near 1.0, x3 mid-range), but two consecutive declines suggest the true optimum within it is narrow. F4 appeared to have a cluster around (0.41, 0.39, 0.37, 0.43) based on the Week 9 new best, but Week 10 returned 0.105 from the same neighbourhood. That reversal is unresolved.
-
-**What has not worked, and the adjustments:** Three strategies have been formally retired or revised. UCB for F8 was replaced by PI after a 7/7 hindsight backtest showed PI outperformed UCB on every prior week. Regression for F8 was used in Week 2 with R-squared 0.936, SW p=0.577, and a gate-4 prediction of 10.38; the actual result was 9.651. That was not a process failure: every gate was correctly passed. The model was simply wrong out-of-sample. The lesson carried forward is that gate passage is a necessary condition, not a sufficient one. The tight trust region for F4 (plus-or-minus 0.15) is the third retirement: after the Week 10 reversal it has been widened to plus-or-minus 0.20 with beta raised from 0.7 to 1.2.
-
-**The parallel to clustering: separating signal from noise:** Clustering algorithms work by identifying regions of high point density and treating low-density space between them as noise. The campaign has done something similar through repeated querying. For F5, ten rounds of data have collapsed uncertainty about where the good region is. For F2, two probes within distance 0.008 and 0.043 of the Week 6 peak both returned lower values, which suggests the peak was either a noise draw or a very narrow local feature that cannot be relocated. A clustering algorithm applied to the F2 data would likely identify one high-value point as an outlier rather than a cluster centroid. The treatment in Week 11 is the same: wider exploration rather than tighter exploitation around a point that may not represent a stable region.
-
-**What a plot of query results would show:** For F5, a clear trajectory from the middle of the space toward the upper-right corner across ten rounds. For F1, six rounds of near-zero results across the domain followed by a spike at Week 7, then a perpendicular confirmation at Week 10. Plotting those points would show the ridge orientation directly. For F4, a scatter with one outlier at 0.492 surrounded by much lower values: the picture of an unstable surface rather than a coherent cluster. These patterns inform Week 11 in a direct way: commit to the confirmed clusters, treat the unstable ones as uncertain, and use geometric reasoning where the GP has not earned trust.
+**Week:** 11 of 13 | **Module:** 22 | **Date:** August 2026
 
 ---
-*Module 22.1 reflection. 689 words. No em dashes. Practitioner voice.*
+
+## Queries Submitted
+
+| Fn | Portal string | Method | Outcome |
+|----|--------------|--------|---------|
+| F1 | ~0 | GP-UCB Matern32 beta=2.0 | Noise floor (5th consecutive non-result) |
+| F2 | 0.534920-0.839... | GP-UCB Matern32 beta=2.0 | 0.53492 — no new best |
+| F3 | 0.999-0.45-0.42... | GP-UCB Matern52 beta=1.3 FORCE_GP | -0.02943 — no new best |
+| F4 | 0.37-0.35-0.38-0.40... | GP-UCB Matern32 beta=1.2 FORCE_GP | +0.42895 — no new best |
+| F5 | 0.999708-0.999805-0.999609-0.999549 | GP-UCB Matern52 beta=0.5 | **8,618.541 — new campaign best** |
+| F6 | 0.39-0.31-0.62-0.901-0.09 | GP-UCB RBF beta=1.0 | -0.36972 — **REVERSAL from Wk10 best (-0.211)** |
+| F7 | 0.126-0.189-0.427-0.197-0.314-0.686 | GP-UCB Matern32 beta=1.0 FORCE_GP | 2.96822 — no new best (Wk6 barrier at 3.008 held) |
+| F8 | (PI 5-seed, seeds 800-804) | PI Matern32 FORCE_GP | **9.97950 — new campaign best** |
+
+---
+
+## Key Findings
+
+**F5: fifth consecutive new best.** All four dimensions now confirmed as strongly positive monotone drivers (r = 0.664–0.753, all p < 0.0001). The initial dataset showed x1 as a negative driver (r = -0.28). The combined dataset reverses this to r = +0.75. Root cause: the initial design covered x1 only up to 0.84, leaving the high-yield corner entirely unsampled. Strategy based on initial data alone would have pointed in the wrong direction for x1 across the full campaign.
+
+**F6 reversal: x4 non-monotone confirmed.** Week 10 achieved -0.211 at x4 = 0.854. Week 11 pushed x4 to 0.901 and returned -0.370 — a loss of 0.159 units. This confirmed that x4 has a ridge structure peaking between 0.73 and 0.85 that degrades sharply above 0.90. The overshoot was a deliberate test of the boundary; the result definitively maps the overshoot zone. Week 12 strategy corrected x4 back to [0.78, 0.87].
+
+**F7: Wk6 barrier (3.008) still standing.** Six rounds of failed attempts to break the Week 6 best. The GP predicted 3.074 at the Week 12 query — the first positive surrogate signal in six rounds. This drove the Week 12 strategy.
+
+**F8: PI acquisition continues to outperform.** Seventh consecutive round where PI beats UCB on this function. x1 and x3 confirmed co-dominant negative drivers (r = -0.759 and -0.742 respectively) across 51 observations.
+
+---
+
+## Diagnostic Highlights
+
+- **IV9 clustering:** F6 high-y cluster centroid confirms x5 = 0.087 (low x5 is critical) and x4 = 0.823 (ridge region). This independently corroborates the overshoot diagnosis.
+- **C3 bootstrap ensemble:** F4 ensemble gap = -0.370 (single GP mean = +0.271, ensemble mean = -0.098). Root cause: rough surface crash points are amplified through bootstrap resampling. Single GP Q² = 0.878 takes precedence for F4.
+- **Combined dataset check (IV6):** Five functions showed material drift between last-6-week correlations and full-history correlations. Combined dataset confirmed essential for all strategy decisions.
+
+---
+
+## Week 12 Preview
+
+Week 12 is the final query round before the last submission. The strategy going into Week 12:
+
+- **F5:** Push all four dimensions to 0.9999 (tightest boundary yet)
+- **F6:** x4 corrected to [0.78, 0.87], x5 as low as possible (<0.10)
+- **F7:** GP predicted 3.074 at query — maintain same region with tighter trust bounds
+- **F8:** PI 5-seed median, seeds 800–804, tighter trust region (±0.08 of Wk11 best)
+- **F1:** Model-free probe, constrained Sobol within 0.014 Euclidean of Wk7 spike
+- **F2:** Global probe to low-x2 region (only unexplored corner remaining)
+- **F3/F4:** FORCE_GP, trust regions around Wk8 and Wk9 bests respectively
