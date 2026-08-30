@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BBO Query and Outcome Tracker — Week 13 FINAL (F6/F7/F8 Revised)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; color: #1F1F1F; max-width: 1000px; margin: 30px auto; background:#fafbfc; }
+  h1 { color: #1F3864; font-size: 20px; margin-bottom: 4px; }
+  .lead { color:#555; font-size:13px; margin-bottom:18px; }
+  #tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  #tabs button { padding:7px 16px; border-radius:5px; border:1px solid #2E75B6; background:white; color:#2E75B6; font-family:Arial; font-weight:bold; cursor:pointer; font-size:13px; }
+  #tabs button.active { background:#1F3864; color:white; border-color:#1F3864; }
+  #fnTitle { background:#1F3864; color:white; padding:10px 16px; border-radius:6px 6px 0 0; font-weight:bold; font-size:15px; }
+  #fnSub { background:#EBF3FB; padding:10px 16px; font-size:12.5px; color:#1F3864; }
+  .panel { border:1px solid #D6E4F0; border-top:none; padding:16px; border-radius:0 0 6px 6px; background:white; }
+  .chartbox { height:230px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; margin-top: 8px;}
+  th { background:#2E75B6; color:white; padding:6px; }
+  td { padding:6px; text-align:center; }
+  td.week { text-align:left; font-weight:bold; }
+  td.query { color:#E8613C; font-weight:bold; }
+  .queryfill { background:#FFF9C4; }
+  .yes { color:#2E7D32; font-weight:bold; background:#E8F5E9; padding:2px 6px; border-radius:3px; }
+  .no { color:#C62828; font-weight:bold; background:#FFEBEE; padding:2px 6px; border-radius:3px; }
+</style>
+</head>
+<body>
+<h1>BBO Query and Outcome Tracker (Weeks 1–12 confirmed | Week 13 FINAL proposed (F6/F7/F8 revised after X-trajectory + NW analysis))</h1>
+<div class="lead">Every query submitted and result received, Initial data through Week 11 (confirmed), per function. Week 12 PROPOSED (gold diamond — F8 corrected: PI 0.393→0.615, dashed line) &mdash; not yet submitted to the portal. Click a function to switch. Click a function to switch.</div>
+<div id="tabs"></div>
+<div id="fnTitle"></div>
+<div id="fnSub"></div>
+<div class="panel">
+  <div class="chartbox"><canvas id="yChart"></canvas></div>
+  <div class="chartbox" style="margin-top:22px;"><canvas id="xChart"></canvas></div>
+  <div style="display:flex; align-items:center; gap:8px; margin-top:22px;">
+    <span style="font-size:12px; color:#555;">Dominance view:</span>
+    <button id="domToggleReg" onclick="setDomView('reg')" style="font-family:Arial; font-size:11px; padding:3px 10px; border-radius:4px; border:1px solid #2E75B6; background:#2E75B6; color:#fff; cursor:pointer;">Regression coefficient</button>
+    <button id="domToggleShap" onclick="setDomView('shap')" style="font-family:Arial; font-size:11px; padding:3px 10px; border-radius:4px; border:1px solid #2E75B6; background:#fff; color:#2E75B6; cursor:pointer;">SHAP (XGBoost)</button>
+  </div>
+  <div class="chartbox" style="height:180px; margin-top:8px;"><canvas id="domChart"></canvas></div>
+  <div id="jointNote" style="font-size:12px; color:#555; margin-top:6px; padding:8px 10px; background:#F5F7FA; border-radius:4px;"></div>
+  <div style="overflow-x:auto;">
+    <table id="tbl"></table>
+  </div>
+</div>
+
+<script>
+const DATA = {"1": {"dims": 2, "description": "Radiation field detection", "initial_best": 0.0, "initial_range": [-0.00360606, 0.0], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 10, "best_after": 0.0, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.598658, 0.156019], "y": -0.0, "best_after": 0.0, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 2", "x": [0.880188, 0.778955], "y": -0.0, "best_after": 0.0, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.417488, 0.994161], "y": 0.0, "best_after": 0.0, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.05, 0.95], "y": 0.0, "best_after": 0.0, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.749424, 0.99], "y": -0.0, "best_after": 0.0, "improved": false, "method": "Bagged ensemble", "draft": false}, {"week": "Week 6", "x": [0.525, 0.547], "y": 0.0, "best_after": 0.0, "improved": false, "method": "Log-quadratic hotspot fit (Option A)", "draft": false}, {"week": "Week 7", "x": [0.628, 0.64], "y": 1.4526, "best_after": 1.45258064, "improved": true, "method": "Model-free midpoint of two positive-signal clusters", "draft": false}, {"week": "Week 8", "x": [0.643526, 0.540546], "y": -4.4629e-06, "best_after": 1.45258064, "improved": false, "method": "Model-free directional probe (trust-region GP unreliable, Q2<0)", "draft": false}, {"week": "Week 9", "x": [0.608, 0.625], "y": 0.6729497471, "best_after": 1.45258064, "improved": false, "method": "Model-free directional probe (0.025 step, inside confirmed dead radius)", "draft": false}, {"week": "Week 10", "x": [0.658, 0.6], "y": 0.021563704, "best_after": 1.45258064, "improved": false, "method": "Geometric perpendicular probe", "draft": false}, {"week": "Week 11", "x": [0.668, 0.67], "y": 7.0475e-06, "best_after": 1.45258064, "improved": false, "method": "GP-UCB constrained, RBF, beta=2.0", "draft": false}, {"week": "Week 12", "x": [0.618518, 0.649998], "y": 0.4906735021, "best_after": 1.45258064, "improved": false, "method": "GP-UCB Matern32 \u03b2=2.0 | constrained \u00b10.014 of Wk7 peak | model-free", "draft": false}, {"week": "Week 13", "x": [0.633407, 0.631618], "y": null, "best_after": 1.45258064, "method": "GP-UCB Matern32 \u03b2=2.0 | A1 median near Wk7 best | model-free (GP Q\u00b2=0.117, spike width <0.014)", "draft": true}], "dominance": [{"x": 1, "coef": 0.0275, "p": 0.7257}, {"x": 2, "coef": 0.008, "p": 0.9188}], "joint": {"r2_main": 0.0076, "r2_full": 0.0076, "gain": 0.0}, "shap_dominance": [{"x": 1, "val": 0.0836}, {"x": 2, "val": 0.0305}], "shap_q2": 0.117, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], "grid": ["SIDE", "SIDE", "SIDE", "SIDE", "SIDE", "CLIMB", "FALL", "CLIMB", "FALL", "SIDE", "CLIMB"]}, "2": {"dims": 2, "description": "Noisy ML log-likelihood", "initial_best": 0.61120522, "initial_range": [-0.06562362, 0.61120522], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 10, "best_after": 0.61120522, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.472665, 0.061138], "y": 0.1077782415, "best_after": 0.61120522, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 2", "x": [0.810452, 0.970929], "y": 0.0680974908, "best_after": 0.61120522, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.579374, 0.997576], "y": 0.1532396396, "best_after": 0.61120522, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.69113, 0.898575], "y": 0.5965294193, "best_after": 0.61120522, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.775772, 0.25239], "y": 0.0994879294, "best_after": 0.61120522, "improved": false, "method": "5-seed mean", "draft": false}, {"week": "Week 6", "x": [0.72, 0.88], "y": 0.7457543801, "best_after": 0.74575438, "improved": true, "method": "GP-UCB (replication test)", "draft": false}, {"week": "Week 7", "x": [0.719591, 0.731384], "y": 0.5226683447, "best_after": 0.74575438, "improved": false, "method": "GP-UCB, trust-region r=0.15, beta=1.0", "draft": false}, {"week": "Week 8", "x": [0.02182, 0.977075], "y": 0.1017850625, "best_after": 0.74575438, "improved": false, "method": "GP-UCB, quadrant-biased (undersampled low-x1/high-x2 region)", "draft": false}, {"week": "Week 9", "x": [0.7421, 0.8434], "y": 0.3946221843, "best_after": 0.74575438, "improved": false, "method": "GP-UCB, trust region x1[0.63,0.77] x2[0.82,0.97], \u03b2=1.2", "draft": false}, {"week": "Week 10", "x": [0.71164, 0.909958], "y": 0.5432526371, "best_after": 0.74575438, "improved": false, "method": "GP-UCB trust region near Wk6 best, degradation confirmed", "draft": false}, {"week": "Week 11", "x": [0.708369, 0.867351], "y": 0.5349189785, "best_after": 0.74575438, "improved": false, "method": "GP-UCB constrained near Wk6, Matern32, beta=2.0", "draft": false}, {"week": "Week 12", "x": [0.976978, 0.001365], "y": 0.0174209315, "best_after": 0.74575438, "improved": false, "method": "GP-UCB Matern32 \u03b2=2.0 | global low-x2 exploration | seed 200", "draft": false}, {"week": "Week 13", "x": [0.737498, 0.890955], "y": null, "best_after": 0.74575438, "method": "GP-UCB Matern32 \u03b2=2.0 | global pool | low-x2 region eliminated Wk12", "draft": true}], "dominance": [{"x": 2, "coef": 0.0997, "p": 0.0377}, {"x": 1, "coef": 0.092, "p": 0.0532}], "joint": {"r2_main": 0.3654, "r2_full": 0.3654, "gain": 0.0}, "shap_dominance": [{"x": 2, "val": 0.4728}, {"x": 1, "val": 0.4457}], "shap_q2": 0.255, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [83.4, 83.4, 83.4, 83.4, 83.4, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], "grid": ["FALL", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL", "FALL", "CLIMB", "CLIMB", "SIDE", "FALL"]}, "3": {"dims": 3, "description": "Drug discovery", "initial_best": -0.03483531, "initial_range": [-0.39892551, -0.03483531], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 15, "best_after": -0.03483531, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.506745, 0.606548, 0.330793], "y": -0.0433409306, "best_after": -0.03483531, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 2", "x": [0.380322, 0.435481, 0.509933], "y": -0.0214586051, "best_after": -0.02145861, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.489681, 0.704021, 0.57702], "y": -0.0457675644, "best_after": -0.02145861, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.390888, 0.247459, 0.445221], "y": -0.0327804266, "best_after": -0.02145861, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.540591, 0.50238, 0.520903], "y": -0.0283622475, "best_after": -0.02145861, "improved": false, "method": "5-seed mean", "draft": false}, {"week": "Week 6", "x": [0.85, 0.35, 0.42], "y": -0.0127425714, "best_after": -0.01274257, "improved": true, "method": "Interaction-informed override", "draft": false}, {"week": "Week 7", "x": [0.87, 0.22, 0.43], "y": -0.0405592306, "best_after": -0.01274257, "improved": false, "method": "Interaction + curvature informed override", "draft": false}, {"week": "Week 8", "x": [0.994308, 0.424175, 0.495961], "y": -0.0071819867, "best_after": -0.00718199, "improved": true, "method": "GP-UCB (FORCE_GP), x3 curvature-constrained + x1\u00d7x3 interaction", "draft": false}, {"week": "Week 9", "x": [0.9991, 0.3566, 0.3812], "y": -0.0296568134, "best_after": -0.00718199, "improved": false, "method": "GP-UCB (FORCE_GP), basin-1 local refinement, \u03b2=1.3, 100k Sobol", "draft": false}, {"week": "Week 10", "x": [0.930033, 0.380092, 0.556721], "y": -0.02622677, "best_after": -0.00718199, "improved": false, "method": "GP-UCB (FORCE_GP), RBF, beta=1.3, Sobol 2^17, box x1[0.93,1.0] x2[0.38,0.50] x3[0.43,0.56]", "draft": false}, {"week": "Week 11", "x": [0.85087, 0.497637, 0.481272], "y": -0.0294273786, "best_after": -0.00718199, "improved": false, "method": "GP-UCB (FORCE_GP), Matern32, beta=1.3, asymmetric trust region x1-high", "draft": false}, {"week": "Week 12", "x": [0.998879, 0.540986, 0.416302], "y": -0.0227329088, "best_after": -0.00718199, "improved": false, "method": "GP-UCB Matern52 \u03b2=1.3 FORCE_GP | x1\u2208[0.90,0.999] x3\u2208[0.40,0.55]", "draft": false}, {"week": "Week 13", "x": [0.999, 0.45, 0.44], "y": null, "best_after": -0.00718199, "method": "GP-UCB RBF \u03b2=1.3 FORCE_GP | trust-region x1=0.999 x3=0.440 (curvature opt) | best GP mean", "draft": true}], "dominance": [{"x": 1, "coef": 0.0328, "p": 0.0149}, {"x": 3, "coef": -0.0308, "p": 0.0254}, {"x": 2, "coef": -0.0102, "p": 0.4361}], "joint": {"r2_main": 0.3578, "r2_full": 0.3578, "gain": 0.0}, "shap_dominance": [{"x": 1, "val": 0.4444}, {"x": 3, "val": 0.3901}, {"x": 2, "val": 0.0032}], "shap_q2": 0.096, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [92.9, 96.4, 96.4, 96.4, 96.4, 98.6, 98.6, 100.0, 100.0, 100.0, 100.0, 100.0], "grid": ["CLIMB", "FALL", "CLIMB", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB"]}, "4": {"dims": 4, "description": "Warehouse allocation", "initial_best": -4.02554228, "initial_range": [-32.62566022, -4.02554228], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 30, "best_after": -4.02554228, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.400827, 0.428837, 0.398466, 0.449225], "y": -0.005526283, "best_after": -0.00552628, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 2", "x": [0.435162, 0.43307, 0.367196, 0.429856], "y": 0.3898219795, "best_after": 0.38982198, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.441216, 0.463079, 0.317065, 0.431608], "y": -0.9669638347, "best_after": 0.38982198, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.436185, 0.389492, 0.378432, 0.414376], "y": 0.3110662696, "best_after": 0.38982198, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.399138, 0.40881, 0.412368, 0.460663], "y": -0.4380138698, "best_after": 0.38982198, "improved": false, "method": "5-seed mean", "draft": false}, {"week": "Week 6", "x": [0.382407, 0.451359, 0.39801, 0.379418], "y": -0.4831816027, "best_after": 0.38982198, "improved": false, "method": "GP-UCB (FORCE_GP)", "draft": false}, {"week": "Week 7", "x": [0.457593, 0.440913, 0.385316, 0.427205], "y": -0.3369533164, "best_after": 0.38982198, "improved": false, "method": "Model-free local-neighbour gradient, FORCE_GP", "draft": false}, {"week": "Week 8", "x": [0.417585, 0.401967, 0.382364, 0.441508], "y": 0.2377640293, "best_after": 0.38982198, "improved": false, "method": "GP-UCB (FORCE_GP), curvature-informed (interior optimum ~0.4)", "draft": false}, {"week": "Week 9", "x": [0.4106, 0.3852, 0.3734, 0.4263], "y": 0.4919250044, "best_after": 0.491925, "improved": true, "method": "GP-UCB (FORCE_GP), Mixture RBF, \u03b2=1.2, 200k Sobol", "draft": false}, {"week": "Week 10", "x": [0.406201, 0.387646, 0.338439, 0.38402], "y": 0.1046500154, "best_after": 0.491925, "improved": false, "method": "GP-UCB (FORCE_GP), RBF, beta=0.7, trust-region [0.34-0.48 per dim]", "draft": false}, {"week": "Week 11", "x": [0.408467, 0.348811, 0.408669, 0.338596], "y": 0.4289475658, "best_after": 0.491925, "improved": false, "method": "GP-UCB (FORCE_GP), Matern32, beta=1.2, all-low region [0.30,0.55]", "draft": false}, {"week": "Week 12", "x": [0.370746, 0.34323, 0.4038, 0.382278], "y": 0.3502981323, "best_after": 0.491925, "improved": false, "method": "GP-UCB Matern32 \u03b2=1.2 FORCE_GP | all dims [0.30,0.55]", "draft": false}, {"week": "Week 13", "x": [0.4106, 0.3852, 0.3734, 0.4263], "y": null, "best_after": 0.491925, "method": "GP-UCB RBF \u03b2=1.2 FORCE_GP | exact Wk9 best coords | global argmax sig=6.96 (extrapolation) | FINAL", "draft": true}], "dominance": [{"x": 1, "coef": -3.2113, "p": 0.0249}, {"x": 4, "coef": -3.0351, "p": 0.0246}, {"x": 2, "coef": -2.4239, "p": 0.0705}, {"x": 3, "coef": -1.5001, "p": 0.2617}], "joint": {"r2_main": 0.4164, "r2_full": 0.4164, "gain": 0.0}, "shap_dominance": [{"x": 1, "val": 0.5022}, {"x": 4, "val": 0.4083}, {"x": 2, "val": 0.3892}, {"x": 3, "val": 0.1886}], "shap_q2": 0.567, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [98.5, 99.7, 99.7, 99.7, 99.7, 99.7, 99.7, 99.7, 100.0, 100.0, 100.0, 100.0], "grid": ["CLIMB", "FALL", "CLIMB", "FALL", "SIDE", "CLIMB", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL"]}, "5": {"dims": 4, "description": "Chemical yield", "initial_best": 1088.8596182, "initial_range": [0.1129398, 1088.8596182], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 20, "best_after": 1088.8596182, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.360299, 0.942015, 0.919077, 0.900569], "y": 2044.217, "best_after": 2044.21698516, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 2", "x": [0.507993, 0.97417, 0.959359, 0.875482], "y": 2619.616, "best_after": 2619.61597399, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.703663, 0.989351, 0.96168, 0.957121], "y": 4128.3404, "best_after": 4128.3403828, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.966254, 0.954711, 0.97337, 0.958107], "y": 6172.3297, "best_after": 6172.32972414, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.974099, 0.980482, 0.944372, 0.936891], "y": 5959.1256, "best_after": 6172.32972414, "improved": false, "method": "5-seed mean", "draft": false}, {"week": "Week 6", "x": [0.985, 0.94, 0.975, 0.96], "y": 6304.967, "best_after": 6304.96703948, "improved": true, "method": "GP-UCB (direction-informed)", "draft": false}, {"week": "Week 7", "x": [0.9721, 0.9995, 0.9757, 0.9542], "y": 6945.778, "best_after": 6945.77800028, "improved": true, "method": "GP-UCB, tight trust-region r=0.10, beta=0.6, median-of-5-seed", "draft": false}, {"week": "Week 8", "x": [0.983945, 0.984895, 0.983832, 0.984271], "y": 7510.1638, "best_after": 7510.16378724, "improved": true, "method": "GP-UCB, corner-biased, capped at 0.985 (boundary-avoidance rule)", "draft": false}, {"week": "Week 9", "x": [0.985, 0.985, 0.984, 0.985], "y": 7545.6348, "best_after": 7545.63479531, "improved": true, "method": "GP-UCB corner-push, manual override of raw argmax, capped 0.985", "draft": false}, {"week": "Week 10", "x": [0.998813, 0.998347, 0.998894, 0.998685], "y": 8561.0542, "best_after": 8561.05421593, "improved": true, "method": "GP-UCB, RBF, beta=0.5, boundary-relaxation box [0.985,0.999]", "draft": false}, {"week": "Week 11", "x": [0.999513, 0.999709, 0.999313, 0.999192], "y": 8618.5411, "best_after": 8618.54107721, "improved": true, "method": "GP-UCB boundary push, Matern32, beta=0.5, box [0.990,0.9999]", "draft": false}, {"week": "Week 12", "x": [0.999708, 0.999805, 0.999609, 0.999549], "y": 8636.7663, "best_after": 8636.7663331, "improved": true, "method": "GP-UCB Matern32 \u03b2=0.5 | all dims [0.995,0.9999] | confirmed Wk12", "draft": false}, {"week": "Week 13", "x": [0.999999, 0.999999, 0.999999, 0.999999], "y": null, "best_after": 8636.7663331, "method": "GP-UCB Matern32 \u03b2=0.5 AGGRESSIVE BOUNDARY PUSH | all dims 0.999999 | marginal return ~77,000/unit RISING | step comparable to Wk11\u219212 | GP pred \u0394y=+17.8 vs +12.2 at 0.9999 | 12-round monotone confirmed | SHAP+PCA+NW+topography all confirm", "draft": true}], "dominance": [{"x": 1, "coef": 1393.0945, "p": 0.0001}, {"x": 3, "coef": 1123.0942, "p": 0.0007}, {"x": 2, "coef": 832.8715, "p": 0.0154}, {"x": 4, "coef": 421.7792, "p": 0.2087}], "joint": {"r2_main": 0.8554, "r2_full": 0.8554, "gain": 0.0}, "shap_dominance": [{"x": 1, "val": 0.7684}, {"x": 3, "val": 0.7431}, {"x": 2, "val": 0.7001}, {"x": 4, "val": 0.676}], "shap_q2": 0.816, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [23.7, 30.3, 47.8, 71.5, 71.5, 73.0, 80.4, 87.0, 87.4, 99.1, 99.8, 100.0], "grid": ["CLIMB", "CLIMB", "CLIMB", "FALL", "CLIMB", "CLIMB", "CLIMB", "SIDE", "CLIMB", "SIDE", "SIDE"]}, "6": {"dims": 5, "description": "Recipe scoring", "initial_best": -0.71426495, "initial_range": [-2.57116963, -0.71426495], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 20, "best_after": -0.71426495, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.5, 0.5, 0.5, 0.95, 0.05], "y": -0.6293930194, "best_after": -0.62939302, "improved": true, "method": "Regression", "draft": false}, {"week": "Week 2", "x": [0.326894, 0.261195, 0.467702, 0.596609, 0.065132], "y": -0.54551354, "best_after": -0.54551354, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.314198, 0.492391, 0.230951, 0.800525, 0.062878], "y": -0.770220398, "best_after": -0.54551354, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.05, 0.5, 0.5, 0.95, 0.05], "y": -0.9138105061, "best_after": -0.54551354, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.396883, 0.061359, 0.654724, 0.963308, 0.000542], "y": -0.6343639946, "best_after": -0.54551354, "improved": false, "method": "Bagged ensemble", "draft": false}, {"week": "Week 6", "x": [0.523355, 0.263385, 0.485002, 0.954954, 0.012977], "y": -0.7062422177, "best_after": -0.54551354, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 7", "x": [0.4393, 0.3703, 0.742, 0.6444, 0.0323], "y": -0.2898625383, "best_after": -0.28986254, "improved": true, "method": "GP-UCB, trust-region, beta=1.5", "draft": false}, {"week": "Week 8", "x": [0.394333, 0.274378, 0.950878, 0.673717, 0.000617], "y": -0.7376789756, "best_after": -0.28986254, "improved": false, "method": "GP-UCB, x1 curvature-constrained (~0.42)", "draft": false}, {"week": "Week 9", "x": [0.4109, 0.3208, 0.5982, 0.65, 0.0025], "y": -0.355129213, "best_after": -0.28986254, "improved": false, "method": "GP-UCB, x4 constrained [0.35,0.70], \u03b2=1.3", "draft": false}, {"week": "Week 10", "x": [0.457169, 0.30655, 0.695134, 0.854115, 0.094061], "y": -0.2105925983, "best_after": -0.2105926, "improved": true, "method": "GP-UCB, RBF, beta=1.3, box x4[0.85,0.999] x5[0.00,0.10]", "draft": false}, {"week": "Week 11", "x": [0.395977, 0.312049, 0.658725, 0.901787, 0.025602], "y": -0.369715753, "best_after": -0.2105926, "improved": false, "method": "GP-UCB constrained, Matern32, beta=1.0, x4=0.902 \u2014 overshot Wk10 level", "draft": false}, {"week": "Week 12", "x": [0.425301, 0.349854, 0.655696, 0.806529, 0.143673], "y": -0.094439628, "best_after": -0.09443963, "improved": true, "method": "GP-UCB Matern32 \u03b2=1.0 | x4 in [0.73,0.86] x5<0.10", "draft": false}, {"week": "Week 13", "x": [0.425301, 0.319854, 0.655696, 0.8, 0.06], "y": null, "best_after": -0.09443963, "method": "GP-UCB Matern32 \u03b2=1.0 REVISED | x4=0.800 (ridge centre, best was 0.807) | x5=0.060 | x4 pivot from X-trajectory analysis", "draft": true}], "dominance": [{"x": 5, "coef": -0.3006, "p": 0.0003}, {"x": 4, "coef": 0.1636, "p": 0.0221}, {"x": 2, "coef": -0.1605, "p": 0.0245}, {"x": 1, "coef": -0.1357, "p": 0.0309}, {"x": 3, "coef": 0.1099, "p": 0.0906}], "joint": {"r2_main": 0.7614, "r2_full": 0.7614, "gain": 0.0}, "shap_dominance": [{"x": 5, "val": 0.7374}, {"x": 4, "val": 0.6171}, {"x": 2, "val": 0.5124}, {"x": 3, "val": 0.3452}, {"x": 1, "val": 0.1522}], "shap_q2": 0.32, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [78.4, 81.8, 81.8, 81.8, 81.8, 81.8, 92.1, 92.1, 92.1, 95.3, 95.3, 100.0], "grid": ["CLIMB", "FALL", "FALL", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB", "CLIMB", "FALL", "CLIMB"]}, "7": {"dims": 6, "description": "ML hyperparameter tuning", "initial_best": 1.3649683, "initial_range": [0.00270147, 1.3649683], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 30, "best_after": 1.3649683, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.118951, 0.343205, 0.289884, 0.186974, 0.285469, 0.789029], "y": 2.089, "best_after": 2.08900177, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 2", "x": [0.058449, 0.198312, 0.302879, 0.28551, 0.282202, 0.724036], "y": 2.7262, "best_after": 2.7262116, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.023103, 0.19164, 0.38486, 0.258864, 0.319643, 0.762179], "y": 2.6067, "best_after": 2.7262116, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.008484, 0.134504, 0.272871, 0.262378, 0.266104, 0.759966], "y": 2.3743, "best_after": 2.7262116, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.131941, 0.178922, 0.387064, 0.232804, 0.3446, 0.794261], "y": 2.641, "best_after": 2.7262116, "improved": false, "method": "5-seed median", "draft": false}, {"week": "Week 6", "x": [0.1261, 0.1898, 0.4274, 0.1967, 0.314, 0.686], "y": 3.0078, "best_after": 3.00777628, "improved": true, "method": "GP-UCB (trust-region checked)", "draft": false}, {"week": "Week 7", "x": [0.1, 0.1898, 0.4274, 0.1967, 0.314, 0.5], "y": 2.46, "best_after": 3.00777628, "improved": false, "method": "Deliberate decorrelation test, FORCE_GP", "draft": false}, {"week": "Week 8", "x": [0.118444, 0.156477, 0.397501, 0.215828, 0.348808, 0.682976], "y": 2.984, "best_after": 3.00777628, "improved": false, "method": "GP-UCB (FORCE_GP)", "draft": false}, {"week": "Week 9", "x": [0.1196, 0.1211, 0.4115, 0.1885, 0.3952, 0.6862], "y": 2.6659, "best_after": 3.00777628, "improved": false, "method": "GP-UCB (FORCE_GP), Matern32, \u03b2=1.0, x5 curvature acted on", "draft": false}, {"week": "Week 10", "x": [0.105661, 0.204049, 0.358387, 0.17361, 0.307432, 0.65177], "y": 2.7525, "best_after": 3.00777628, "improved": false, "method": "GP-UCB (FORCE_GP), Matern32, beta=1.0, x4 constrained [0.05,0.18]", "draft": false}, {"week": "Week 11", "x": [0.090725, 0.209053, 0.456991, 0.253237, 0.341043, 0.723607], "y": 2.9682, "best_after": 3.00777628, "improved": false, "method": "GP-UCB (FORCE_GP), Matern32, beta=1.0, seed 703 override", "draft": false}, {"week": "Week 12", "x": [0.128775, 0.172407, 0.438382, 0.226252, 0.302972, 0.676083], "y": 3.1489, "best_after": 3.14893907, "improved": true, "method": "GP-UCB Matern32 \u03b2=1.0 FORCE_GP | \u00b10.03 Wk6 best | NEW BEST 3.149", "draft": false}, {"week": "Week 13", "x": [0.123775, 0.167407, 0.438382, 0.216252, 0.297972, 0.681083], "y": null, "best_after": 3.14893907, "method": "GP-UCB Matern32 \u03b2=1.0 REVISED | x2 DOWN to 0.167 (r=\u22120.385) | x4 DOWN to 0.216 (r=\u22120.449) | directional correction from X-trajectory analysis", "draft": true}], "dominance": [{"x": 1, "coef": -0.5467, "p": 0.0013}, {"x": 4, "coef": -0.319, "p": 0.0256}, {"x": 5, "coef": -0.1965, "p": 0.1727}, {"x": 2, "coef": -0.1825, "p": 0.2057}, {"x": 6, "coef": 0.1693, "p": 0.2735}, {"x": 3, "coef": -0.0598, "p": 0.6631}], "joint": {"r2_main": 0.5988, "r2_full": 0.5988, "gain": 0.0}, "shap_dominance": [{"x": 1, "val": 0.6336}, {"x": 4, "val": 0.4488}, {"x": 6, "val": 0.4411}, {"x": 2, "val": 0.3851}, {"x": 5, "val": 0.3174}, {"x": 3, "val": 0.033}], "shap_q2": 0.658, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [66.3, 86.6, 86.6, 86.6, 86.6, 95.5, 95.5, 95.5, 95.5, 95.5, 95.5, 100.0], "grid": ["CLIMB", "FALL", "FALL", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB", "CLIMB", "CLIMB"]}, "8": {"dims": 8, "description": "Neural network tuning", "initial_best": 9.598482, "initial_range": [5.59219339, 9.598482], "weeks": [{"week": "Initial", "x": null, "y": null, "n_initial": 40, "best_after": 9.598482, "method": "Imperial initial data"}, {"week": "Week 1", "x": [0.05, 0.05, 0.05, 0.5, 0.5, 0.5, 0.05, 0.5], "y": 9.7523, "best_after": 9.7523, "improved": true, "method": "Regression", "draft": false}, {"week": "Week 2", "x": [0.167273, 0.137099, 0.287499, 0.005147, 0.843863, 0.006698, 0.198576, 0.592857], "y": 9.6511, "best_after": 9.7523, "improved": false, "method": "GP-UCB", "draft": false}, {"week": "Week 3", "x": [0.189606, 0.170536, 0.008934, 0.24468, 0.59543, 0.299066, 0.298355, 0.412436], "y": 9.8464, "best_after": 9.84642022, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 4", "x": [0.044068, 0.389868, 0.184727, 0.160732, 0.755472, 0.375973, 0.216312, 0.508971], "y": 9.9094, "best_after": 9.9093714, "improved": true, "method": "GP-UCB", "draft": false}, {"week": "Week 5", "x": [0.128209, 0.176123, 0.177564, 0.17974, 0.536273, 0.455703, 0.25101, 0.734363], "y": 9.9463, "best_after": 9.94630705, "improved": true, "method": "5-seed median", "draft": false}, {"week": "Week 6", "x": [0.1191, 0.0368, 0.2096, 0.0312, 0.6797, 0.5216, 0.1972, 0.6655], "y": 9.9452, "best_after": 9.94630705, "improved": false, "method": "GP-UCB (trust-region checked)", "draft": false}, {"week": "Week 7", "x": [0.0035, 0.0535, 0.1066, 0.0179, 0.9253, 0.85, 0.2714, 0.6925], "y": 9.8116, "best_after": 9.94630705, "improved": false, "method": "x6 promotion / x3\u00d7x6 interaction test, FORCE_GP", "draft": false}, {"week": "Week 8", "x": [0.009063, 0.236232, 0.125907, 0.102974, 0.61304, 0.390671, 0.173828, 0.801609], "y": 9.9389, "best_after": 9.94630705, "improved": false, "method": "GP-UCB (FORCE_GP), x1 edge-biased", "draft": false}, {"week": "Week 9", "x": [0.0772, 0.2816, 0.1466, 0.1467, 0.6895, 0.5461, 0.1755, 0.6248], "y": 9.9713, "best_after": 9.97131185, "improved": true, "method": "PI (switched from UCB), 5-seed MEDIAN", "draft": false}, {"week": "Week 10", "x": [0.095926, 0.202054, 0.143322, 0.131431, 0.647455, 0.387719, 0.15619, 0.625884], "y": 9.9682, "best_after": 9.97131185, "improved": false, "method": "PI (xi=0.01), 5-seed median (seeds 2000-2004), RBF", "draft": false}, {"week": "Week 11", "x": [0.110474, 0.170347, 0.14571, 0.125022, 0.620414, 0.458561, 0.205258, 0.677623], "y": 9.9795, "best_after": 9.97950169, "improved": true, "method": "PI 5-seed median (FORCE_GP), Matern32, seeds 800-804", "draft": false}, {"week": "Week 12", "x": [0.061026, 0.185625, 0.155488, 0.134396, 0.680561, 0.518353, 0.233223, 0.657957], "y": 9.9835, "best_after": 9.98348741, "improved": true, "method": "PI 5-seed median FORCE_GP Matern32 | seeds 800-804 | CORRECTED PI 0.393\u21920.615", "draft": false}, {"week": "Week 13", "x": [0.045, 0.173625, 0.13, 0.122396, 0.680561, 0.518353, 0.205, 0.657957], "y": null, "best_after": 9.98348741, "method": "PI FORCE_GP Matern32 REVISED | push active dims: x1\u21920.045 x3\u21920.130 x7\u21920.205 | repeating observed point cannot improve | NW confirms neighbourhood safe", "draft": true}], "dominance": [{"x": 3, "coef": -0.6182, "p": 0.0}, {"x": 1, "coef": -0.4993, "p": 0.0}, {"x": 7, "coef": -0.3325, "p": 0.0}, {"x": 2, "coef": -0.1301, "p": 0.0175}, {"x": 4, "coef": -0.0859, "p": 0.1027}, {"x": 8, "coef": 0.0566, "p": 0.2779}, {"x": 6, "coef": -0.0152, "p": 0.7452}, {"x": 5, "coef": 0.0014, "p": 0.9768}], "joint": {"r2_main": 0.9413, "r2_full": 0.9413, "gain": 0.0}, "shap_dominance": [{"x": 1, "val": 0.7662}, {"x": 3, "val": 0.7467}, {"x": 7, "val": 0.5782}, {"x": 2, "val": 0.4459}, {"x": 4, "val": 0.3721}, {"x": 8, "val": 0.1805}, {"x": 5, "val": 0.1265}, {"x": 6, "val": 0.0276}], "shap_q2": 0.182, "shap_joint_frac": 0.0, "shap_top_pairs": [], "norm_pct": [94.7, 94.7, 96.9, 98.3, 99.2, 99.2, 99.2, 99.2, 99.7, 99.7, 99.9, 100.0], "grid": ["FALL", "CLIMB", "CLIMB", "CLIMB", "SIDE", "FALL", "CLIMB", "CLIMB", "SIDE", "CLIMB", "SIDE"]}};
+
+const PALETTE = ['#2E75B6','#E8613C','#2E7D32','#8E44AD','#D4AC0D','#16A085','#C0392B','#34495E'];
+let yChart=null, xChart=null, domChart=null;
+
+function fmt(v){
+  if (v===null||v===undefined) return '-';
+  const av = Math.abs(v);
+  if (av!==0 && (av<1e-4 || av>=100000)) return v.toExponential(3);
+  return v.toFixed(5).replace(/0+$/,'').replace(/\.$/,'');
+}
+
+function renderTabs(){
+  const tabs=document.getElementById('tabs');
+  tabs.innerHTML='';
+  for(let i=1;i<=8;i++){
+    const b=document.createElement('button');
+    b.textContent='F'+i;
+    b.dataset.fn=i;
+    b.onclick=()=>selectFn(i);
+    tabs.appendChild(b);
+  }
+}
+
+let domView = 'reg';
+function setDomView(view){
+  domView = view;
+  document.getElementById('domToggleReg').style.background = view==='reg' ? '#2E75B6' : '#fff';
+  document.getElementById('domToggleReg').style.color = view==='reg' ? '#fff' : '#2E75B6';
+  document.getElementById('domToggleShap').style.background = view==='shap' ? '#2E75B6' : '#fff';
+  document.getElementById('domToggleShap').style.color = view==='shap' ? '#fff' : '#2E75B6';
+  const active = document.querySelector('#tabs button.active');
+  if (active) renderDominance(parseInt(active.dataset.fn));
+}
+function renderDominance(fn){
+  const d = DATA[fn];
+  let domLabels, domVals, domColors, tooltipFn, titleText;
+  if (domView === 'reg'){
+    domLabels = d.dominance.map(item => 'x'+item.x + (item.p < 0.05 ? '' : ' (n.s.)'));
+    domVals = d.dominance.map(item => item.coef);
+    domColors = d.dominance.map(item => item.p < 0.05 ? (item.coef >= 0 ? '#2E7D32' : '#C62828') : '#BBBBBB');
+    titleText = 'Dominant \u2192 least dominant input (standardized regression coefficient; grey = not significant, p\u22650.05)';
+    tooltipFn = function(ctx){ const item = d.dominance[ctx.dataIndex]; return 'x'+item.x+': coef='+item.coef+', p='+item.p; };
+  } else {
+    domLabels = d.shap_dominance.map(item => 'x'+item.x);
+    domVals = d.shap_dominance.map(item => item.val);
+    domColors = d.shap_dominance.map(() => '#6A1B9A');
+    titleText = 'Dominant \u2192 least dominant input (mean |SHAP value|, XGBoost surrogate, tree Q2='+d.shap_q2+')';
+    tooltipFn = function(ctx){ const item = d.shap_dominance[ctx.dataIndex]; return 'x'+item.x+': mean|SHAP|='+item.val; };
+  }
+  if (domChart) domChart.destroy();
+  domChart = new Chart(document.getElementById('domChart'), {
+    type: 'bar',
+    data: { labels: domLabels, datasets: [{ data: domVals, backgroundColor: domColors, borderRadius: 3 }]},
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: titleText, font: { family:'Arial', size: 11.5 } },
+        tooltip: { callbacks: { label: tooltipFn } }
+      },
+      scales: { x: { ticks: { font: { family:'Arial', size:10 } } }, y: { ticks: { font: { family:'Arial', size:11 } } } }
+    }
+  });
+
+  const jn = document.getElementById('jointNote');
+  if (domView === 'reg'){
+    jn.innerHTML = '<b>Joint (interaction) contribution \u2014 regression view:</b> main effects alone explain R\u00b2='+d.joint.r2_main.toFixed(3)+
+      '; adding all significant pairwise interactions brings it to R\u00b2='+d.joint.r2_full.toFixed(3)+
+      ' &mdash; interactions add <b>+'+d.joint.gain.toFixed(3)+'</b> beyond the individual x-coefficients above. Toggle to SHAP for an independent, non-linear cross-check.';
+  } else {
+    const pairs = d.shap_top_pairs.map(p => 'x'+p.a+'\u00d7x'+p.b+' ('+p.val+')').join(', ');
+    jn.innerHTML = '<b>Joint (interaction) contribution \u2014 SHAP view:</b> '+(d.shap_joint_frac*100).toFixed(1)+
+      '% of total |SHAP| importance comes from pairwise interactions rather than individual inputs. Top co-contributing pairs: '+pairs+'.';
+  }
+}
+
+function selectFn(fn){
+  document.querySelectorAll('#tabs button').forEach(b=>{
+    b.classList.toggle('active', parseInt(b.dataset.fn)===fn);
+  });
+  const d = DATA[fn];
+  document.getElementById('fnTitle').textContent = 'F'+fn+' \u2014 '+d.description+' ('+d.dims+'D)';
+  document.getElementById('fnSub').textContent = 'Initial data best: '+fmt(d.initial_best)+'  |  Initial range: ['+fmt(d.initial_range[0])+', '+fmt(d.initial_range[1])+']  |  n initial = '+d.weeks[0].n_initial;
+
+  const labels = d.weeks.map(w=> w.draft ? w.week+' *' : w.week);
+  const yValsRaw = d.weeks.map(w=>w.y);
+  const bestValsRaw = d.weeks.map(w=>w.best_after);
+  const magCandidates = [...yValsRaw, ...bestValsRaw].filter(v=>v!==null && v!==undefined).map(v=>Math.abs(v));
+  const maxAbs = magCandidates.length ? Math.max(...magCandidates) : 0;
+  const useLog = maxAbs > 0 && maxAbs < 1e-3;
+
+  function signedLog(v){
+    if(v===null||v===undefined) return null;
+    if(v===0) return 0;
+    return Math.sign(v)*Math.log10(Math.abs(v));
+  }
+
+  const yVals = useLog ? yValsRaw.map(signedLog) : yValsRaw;
+  const bestVals = useLog ? bestValsRaw.map(signedLog) : bestValsRaw;
+  const pointColors = d.weeks.map(w=> w.draft ? '#D4AC0D' : (w.week==='Initial' ? '#999' : (w.improved ? '#2E7D32' : '#C0392B')));
+  const pointStyles = d.weeks.map(w=> w.draft ? 'rectRot' : 'circle');
+  const pointRadii = d.weeks.map(w=> w.draft ? 8 : 6);
+
+  if(yChart) yChart.destroy();
+  yChart = new Chart(document.getElementById('yChart'), {
+    type:'line',
+    data:{labels, datasets:[
+      {label:'Query output (y)', data:yVals, borderColor:'#2E75B6', backgroundColor:'#2E75B6', pointBackgroundColor:pointColors, pointStyle:pointStyles, pointRadius:pointRadii, pointHoverRadius:9, spanGaps:true, tension:0.15},
+      {label:'Running best', data:bestVals, borderColor:'#999', borderDash:[5,4], pointRadius:0, fill:false, tension:0}
+    ]},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{font:{family:'Arial',size:11}}},
+        title:{display:true,text: useLog ? 'Output (y) by week \u2014 signed log10 magnitude (raw values near zero, shown in tooltip)' : 'Output (y) by week \u2014 green = improved, red = did not, ', font:{family:'Arial',size:11}},
+        tooltip:{callbacks:{label:function(ctx){
+          const idx = ctx.dataIndex;
+          const raw = ctx.datasetIndex===0 ? yValsRaw[idx] : bestValsRaw[idx];
+          return ctx.dataset.label+': '+fmt(raw);
+        }}}
+      },
+      scales:{y:{ticks:{font:{family:'Arial',size:10}}, title:{display:useLog, text:'sign \u00d7 log10(|y|)', font:{family:'Arial',size:10}}}, x:{ticks:{font:{family:'Arial',size:10}}}}}
+  });
+
+  const xLabels = labels;
+  const dsets=[];
+  for(let dim=0; dim<d.dims; dim++){
+    dsets.push({
+      label:'x'+(dim+1),
+      data: [null, ...d.weeks.slice(1).map(w=>w.x[dim])],
+      borderColor: PALETTE[dim%PALETTE.length],
+      backgroundColor: PALETTE[dim%PALETTE.length],
+      pointRadius: [0, ...d.weeks.slice(1).map(w=> w.draft ? 7 : 4)],
+      pointStyle: ['circle', ...d.weeks.slice(1).map(w=> w.draft ? 'rectRot' : 'circle')],
+      spanGaps:false,
+      segment:{ borderDash: ctx => (ctx.p1DataIndex === d.weeks.length-1 && d.weeks[d.weeks.length-1].draft) ? [6,4] : undefined },
+      tension:0.15, fill:false
+    });
+  }
+  if(xChart) xChart.destroy();
+  xChart = new Chart(document.getElementById('xChart'), {
+    type:'line',
+    data:{labels:xLabels, datasets:dsets},
+    options:{responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{font:{family:'Arial',size:11}}}, title:{display:true,text:'Input coordinates by week (0-1 scale)', font:{family:'Arial',size:12}}},
+      scales:{y:{min:0,max:1,ticks:{font:{family:'Arial',size:10}}}, x:{ticks:{font:{family:'Arial',size:10}}}}}
+  });
+
+  renderDominance(fn);
+
+  const tbl=document.getElementById('tbl');
+  let html='<tr><th style="text-align:left;">Week</th><th>Method</th><th>Query (x)</th><th>Output (y)</th><th>Improved?</th></tr>';
+  d.weeks.forEach((w,i)=>{
+    const xstr = w.x ? w.x.map(v=>v.toFixed(6)).join('-') : ('n='+w.n_initial+' initial obs');
+    const impCell = w.draft ? '<span style="color:#D4AC0D;font-weight:bold;background:#FFF8E1;padding:2px 6px;border-radius:3px;">DRAFT</span>' : (w.week==='Initial' ? '-' : (w.improved ? '<span class="yes">YES</span>' : '<span class="no">no</span>'));
+    const rowStyle = w.draft ? ' style="background:#FFFDF5;"' : '';
+    html += '<tr'+rowStyle+'><td class="week">'+w.week+(w.draft?' *':'')+'</td>'+
+      '<td>'+w.method+'</td>'+
+      '<td class="query'+(w.x?' queryfill':'')+'">'+xstr+'</td>'+
+      '<td>'+fmt(w.y)+'</td>'+
+      '<td>'+impCell+'</td></tr>';
+  });
+  if(d.weeks[d.weeks.length-1].draft){
+    html += '<tr><td colspan="5" style="text-align:left;font-style:italic;color:#888;padding:6px;"></td></tr>';
+  }
+  tbl.innerHTML = html;
+}
+
+renderTabs();
+selectFn(1);
+</script>
+</body>
+</html>

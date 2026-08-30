@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BBO Weekly Trend — Week 13 FINAL (F6/F7/F8 Revised)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; color: #1F1F1F; max-width: 1050px; margin: 30px auto; background:#fafbfc; }
+  h1 { color: #1F3864; font-size: 20px; margin-bottom: 4px; }
+  .lead { color:#555; font-size:13px; margin-bottom:18px; }
+  #tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  #tabs button { padding:7px 16px; border-radius:5px; border:1px solid #2E75B6; background:white; color:#2E75B6; font-family:Arial; font-weight:bold; cursor:pointer; font-size:13px; }
+  #tabs button.active { background:#1F3864; color:white; border-color:#1F3864; }
+  #tabs button.overview { border-color:#8E44AD; color:#8E44AD; }
+  #tabs button.overview.active { background:#8E44AD; color:white; border-color:#8E44AD; }
+  #fnTitle { background:#1F3864; color:white; padding:10px 16px; border-radius:6px 6px 0 0; font-weight:bold; font-size:15px; }
+  #fnSub { background:#EBF3FB; padding:10px 16px; font-size:12.5px; color:#1F3864; }
+  .panel { border:1px solid #D6E4F0; border-top:none; padding:16px; border-radius:0 0 6px 6px; background:white; }
+  .chartbox { height:260px; }
+  .insight { background:#FFF8E1; border-left:4px solid #D4AC0D; padding:10px 14px; margin-top:14px; font-size:12.5px; line-height:1.5; color:#5C4400; border-radius:0 4px 4px 0; }
+  .stripwrap { display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
+  .strip { flex:1; min-width:70px; text-align:center; padding:8px 4px; border-radius:5px; font-size:11.5px; font-weight:bold; }
+  .climb { color:#2E7D32; background:#E8F5E9; }
+  .fall { color:#C62828; background:#FFEBEE; }
+  .side { color:#8A6D00; background:#FFF8E1; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { background:#2E75B6; color:white; padding:7px; text-align:center; }
+  td { padding:7px; text-align:center; border-bottom:1px solid #EEF3F8; }
+  td.fn { text-align:left; font-weight:bold; color:#1F3864; background:#EBF3FB; cursor:pointer; }
+  td.fn:hover { text-decoration:underline; }
+  .note { font-size:12px; color:#666; margin-top:10px; line-height:1.5; }
+</style>
+</head>
+<body>
+<h1>BBO Weekly Trend — Function Detail (Weeks 1–12 confirmed | Week 13 FINAL proposed (F6/F7/F8 revised after X-trajectory + NW analysis))</h1>
+<div class="lead">No true function to compare against, so this tracks each function's own trajectory: raw output by week, and whether each week moved us up, sideways, or down relative to the week before (sized against that function's own volatility, not a fixed threshold). Click a function for the full detail and the specific signal found for it this cycle; Overview shows all eight side by side. Chart and grid now run through Week 11 confirmed; each function's insight box carries the Week 9 CONFIRMED result checked against its own prediction, plus the Week 12 PROPOSED query (not yet submitted). This cycle also added a length-scale bound sensitivity check (GP eligibility on F1 flips depending on a hyperparameter bound we set ourselves) and refined F1's hotspot geometry (decay is direction-dependent, not a simple fixed-radius spike).</div>
+<div id="tabs"></div>
+<div id="fnTitle"></div>
+<div id="fnSub"></div>
+<div class="panel" id="panelBody">
+  <div class="chartbox"><canvas id="mainChart"></canvas></div>
+  <div id="stripArea"></div>
+  <div id="insightArea"></div>
+  <div id="overviewGridArea"></div>
+</div>
+
+<script>
+const D = {"series": {"1": {"description": "Radiation field detection", "norm_pct": [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], "y_raw": [-0.0, -0.0, 0.0, 0.0, -0.0, 0.0, 1.4526, -4.4629e-06, 0.6729497471, 0.021563704, 7.0475e-06, 0.4906735021]}, "2": {"description": "Noisy ML log-likelihood", "norm_pct": [83.4, 83.4, 83.4, 83.4, 83.4, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0], "y_raw": [0.1077782415, 0.0680974908, 0.1532396396, 0.5965294193, 0.0994879294, 0.7457543801, 0.5226683447, 0.1017850625, 0.3946221843, 0.5432526371, 0.5349189785, 0.0174209315]}, "3": {"description": "Drug discovery", "norm_pct": [92.9, 96.4, 96.4, 96.4, 96.4, 98.6, 98.6, 100.0, 100.0, 100.0, 100.0, 100.0], "y_raw": [-0.0433409306, -0.0214586051, -0.0457675644, -0.0327804266, -0.0283622475, -0.0127425714, -0.0405592306, -0.0071819867, -0.0296568134, -0.02622677, -0.0294273786, -0.0227329088]}, "4": {"description": "Warehouse allocation", "norm_pct": [98.5, 99.7, 99.7, 99.7, 99.7, 99.7, 99.7, 99.7, 100.0, 100.0, 100.0, 100.0], "y_raw": [-0.005526283, 0.3898219795, -0.9669638347, 0.3110662696, -0.4380138698, -0.4831816027, -0.3369533164, 0.2377640293, 0.4919250044, 0.1046500154, 0.4289475658, 0.3502981323]}, "5": {"description": "Chemical yield", "norm_pct": [23.7, 30.3, 47.8, 71.5, 71.5, 73.0, 80.4, 87.0, 87.4, 99.1, 99.8, 100.0], "y_raw": [2044.217, 2619.616, 4128.3404, 6172.3297, 5959.1256, 6304.967, 6945.778, 7510.1638, 7545.6348, 8561.0542, 8618.5411, 8636.7663]}, "6": {"description": "Recipe scoring", "norm_pct": [78.4, 81.8, 81.8, 81.8, 81.8, 81.8, 92.1, 92.1, 92.1, 95.3, 95.3, 100.0], "y_raw": [-0.6293930194, -0.54551354, -0.770220398, -0.9138105061, -0.6343639946, -0.7062422177, -0.2898625383, -0.7376789756, -0.355129213, -0.2105925983, -0.369715753, -0.094439628]}, "7": {"description": "ML hyperparameter tuning", "norm_pct": [66.3, 86.6, 86.6, 86.6, 86.6, 95.5, 95.5, 95.5, 95.5, 95.5, 95.5, 100.0], "y_raw": [2.089, 2.7262, 2.6067, 2.3743, 2.641, 3.0078, 2.46, 2.984, 2.6659, 2.7525, 2.9682, 3.1489]}, "8": {"description": "Neural network tuning", "norm_pct": [94.7, 94.7, 96.9, 98.3, 99.2, 99.2, 99.2, 99.2, 99.7, 99.7, 99.9, 100.0], "y_raw": [9.7523, 9.6511, 9.8464, 9.9094, 9.9463, 9.9452, 9.8116, 9.9389, 9.9713, 9.9682, 9.9795, 9.9835]}}, "grid": {"1": ["SIDE", "SIDE", "SIDE", "SIDE", "SIDE", "CLIMB", "FALL", "CLIMB", "FALL", "SIDE", "CLIMB"], "2": ["FALL", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL", "FALL", "CLIMB", "CLIMB", "SIDE", "FALL"], "3": ["CLIMB", "FALL", "CLIMB", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB"], "4": ["CLIMB", "FALL", "CLIMB", "FALL", "SIDE", "CLIMB", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL"], "5": ["CLIMB", "CLIMB", "CLIMB", "FALL", "CLIMB", "CLIMB", "CLIMB", "SIDE", "CLIMB", "SIDE", "SIDE"], "6": ["CLIMB", "FALL", "FALL", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB", "CLIMB", "FALL", "CLIMB"], "7": ["CLIMB", "FALL", "FALL", "CLIMB", "CLIMB", "FALL", "CLIMB", "FALL", "CLIMB", "CLIMB", "CLIMB"], "8": ["FALL", "CLIMB", "CLIMB", "CLIMB", "SIDE", "FALL", "CLIMB", "CLIMB", "SIDE", "CLIMB", "SIDE"]}};
+const PALETTE = ['#2E75B6','#E8613C','#2E7D32','#8E44AD','#D4AC0D','#16A085','#C0392B','#34495E'];
+const weeks = ['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6','Wk7','Wk8','Wk9','Wk10','Wk11','Wk12'];
+const FN_INSIGHTS = {"1": "Campaign best: 1.4526 (Week 7). Hotspot narrower than 0.014 Euclidean. GP Q2=0.117. X-trajectory: both dims noise - no pivot signal. NW within 0.05 of proposed. Week 13 FINAL: A1 median near Wk7 spike.", "2": "Campaign best: 0.746 (Week 6). Week 12 low-x2 probe returned 0.017 - region exhausted. X-trajectory: x1 up, x2 up, both correct (r>0). NW argmax [0.732,0.887] within 0.004. Week 13 FINAL: GP-UCB main region.", "3": "Campaign best: -0.007 (Week 8). x3 curvature optimum 0.440 confirmed (dR2=0.490). x1 positive driver (r=+0.444). X-trajectory confirmed. NW confirms x1 ceiling. Week 13 FINAL: x1=0.999, x3=0.440.", "4": "Campaign best: 0.492 (Week 9). Surface extremely rough - within 0.05 spans -11.6 to +0.49. NW Q2=0.758 but argmax mu=0.006. X-trajectory: exact Wk9 anchor. Week 13 FINAL: exact Wk9 best.", "5": "Campaign best: 8,636.77 (Week 12 - 6th consecutive win). All 4 dims positive monotone. PCA PC1=62.9% r=+0.908. NW 0% backtest - both surrogates conservative at boundary. Week 13 FINAL: all dims 0.9999.", "6": "Campaign best: -0.094 (Week 12). x5 dominant negative (r=-0.737). x4 non-monotone ridge [0.73-0.85]. REVISED: original x4=0.732 was 0.075 below best (0.807). Corrected to x4=0.800 (ridge centre). NW argmax at x4=0.899 (overshoot) rejected. Week 13 FINAL: x4=0.800, x5=0.060.", "7": "Campaign best: 3.149 (Week 12). A1 flag (max_pw=0.257), A3 not converged at 2^17. REVISED: original x2 going UP (r=-0.385, should go DOWN), x4 going UP (r=-0.449, should go DOWN). Corrected: x2 to 0.167, x4 to 0.216. Week 13 FINAL: directionally corrected nudge.", "8": "Campaign best: 9.983 (Week 12). PI beats UCB 7/7. x1/x3 co-dominant negative drivers. REVISED: original query was exact repeat of Wk12 best - guaranteed no improvement. Push: x1 to 0.045, x3 to 0.130, x7 to 0.205. NW at revised = 9.967 (safe neighbourhood). Week 13 FINAL: gradient push from best."};
+const REVISED_FNS = ['6','7','8'];
+
+let mainChart = null;
+let current = 'overview';
+
+function renderTabs(){
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = '';
+  const ov = document.createElement('button');
+  ov.textContent = 'Overview';
+  ov.className = 'overview';
+  ov.onclick = () => select('overview');
+  tabs.appendChild(ov);
+  for (let i = 1; i <= 8; i++) {
+    const b = document.createElement('button');
+    b.textContent = 'F' + i;
+    b.dataset.fn = i;
+    b.onclick = () => select(i);
+    tabs.appendChild(b);
+  }
+}
+
+function fmt(v){
+  const av = Math.abs(v);
+  if (av !== 0 && (av < 1e-4 || av >= 100000)) return v.toExponential(3);
+  return v.toFixed(5).replace(/0+$/,'').replace(/\.$/,'');
+}
+
+function select(fn){
+  current = fn;
+  document.querySelectorAll('#tabs button').forEach(b => {
+    const isOverview = b.classList.contains('overview');
+    b.classList.toggle('active', isOverview ? fn === 'overview' : parseInt(b.dataset.fn) === fn);
+  });
+  if (fn === 'overview') renderOverview(); else renderFunction(fn);
+}
+
+function renderOverview(){
+  document.getElementById('fnTitle').textContent = 'All Functions — Position Within Own Observed Range';
+  document.getElementById('fnSub').textContent = '0% = worst seen so far for that function, 100% = best seen so far. Normalising each to its own range is what makes 8 different scales (1e-72 to 6900) comparable on one chart.';
+  document.getElementById('stripArea').innerHTML = '';
+  document.getElementById('insightArea').innerHTML = '<div class="insight">F4 and F8 sit near 100% most weeks not because they are "solved" but because their initial exploratory data included some very bad points, stretching the range. Click into F4 or F8 directly to see the real week-to-week picture, this overview can hide exactly that kind of nuance.</div>';
+
+  const datasets = Object.keys(D.series).map((fn, i) => ({
+    label: 'F' + fn + ' - ' + D.series[fn].description,
+    data: D.series[fn].norm_pct,
+    borderColor: PALETTE[i % PALETTE.length],
+    backgroundColor: PALETTE[i % PALETTE.length],
+    pointRadius: 4, pointHoverRadius: 7, tension: 0.2, fill: false
+  }));
+
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: { labels: weeks, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { family: 'Arial', size: 10 }, boxWidth: 12 } },
+        title: { display: true, text: '% of each function\'s own observed range, by week', font: { family: 'Arial', size: 12 } },
+        tooltip: { callbacks: { label: function(ctx) {
+          const fn = Object.keys(D.series)[ctx.datasetIndex];
+          const raw = D.series[fn].y_raw[ctx.dataIndex];
+          return ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '% (raw y=' + raw.toPrecision(5) + ')';
+        } } }
+      },
+      scales: {
+        y: { min: 0, max: 100, title: { display: true, text: '% of own range', font: { family: 'Arial', size: 11 } }, ticks: { font: { family: 'Arial', size: 10 } } },
+        x: { ticks: { font: { family: 'Arial', size: 10 } } }
+      }
+    }
+  });
+
+  const gridArea = document.getElementById('overviewGridArea');
+  let gh = '<table style="margin-top:16px;"><tr><th style="text-align:left;">Fn</th><th>Wk1→2</th><th>Wk2→3</th><th>Wk3→4</th><th>Wk4→5</th><th>Wk5→6</th><th>Wk6→7</th><th>Wk7→8</th><th>Wk8→9</th><th>Wk9→10</th><th>Wk10→11</th></tr>';
+  for (const fn of Object.keys(D.grid)) {
+    gh += '<tr><td class="fn" onclick="select(' + fn + ')">F' + fn + '</td>';
+    D.grid[fn].forEach(label => {
+      let cls = 'side', arrow = '→ SIDE';
+      if (label === 'CLIMB') { cls = 'climb'; arrow = '↑ CLIMB'; }
+      else if (label === 'FALL') { cls = 'fall'; arrow = '↓ FALL'; }
+      gh += '<td class="' + cls + '">' + arrow + '</td>';
+    });
+    gh += '</tr>';
+  }
+  gh += '</table>';
+  gridArea.innerHTML = gh;
+}
+
+function renderFunction(fn){
+  const s = D.series[fn];
+  const g = D.grid[fn];
+  document.getElementById('fnTitle').textContent = 'F' + fn + ' — ' + s.description;
+  document.getElementById('fnSub').textContent = 'Raw output (y) by week, actual values — this function\'s own trajectory, week 1 through week 11 (confirmed); Week 12 proposed but not submitted, see insight box.';
+  document.getElementById('overviewGridArea').innerHTML = '';
+
+  const pointColors = g.map(l => l === 'CLIMB' ? '#2E7D32' : (l === 'FALL' ? '#C62828' : '#D4AC0D'));
+
+  const yvals = s.y_raw;
+  const maxAbs = Math.max(...yvals.map(v => Math.abs(v)));
+  const useLog = maxAbs > 0 && maxAbs < 1e-3;
+  function signedLog(v){ if (v === 0) return 0; return Math.sign(v) * Math.log10(Math.abs(v)); }
+  const plotVals = useLog ? yvals.map(signedLog) : yvals;
+
+  if (mainChart) mainChart.destroy();
+  mainChart = new Chart(document.getElementById('mainChart'), {
+    type: 'line',
+    data: {
+      labels: weeks,
+      datasets: [{
+        label: 'Output (y)',
+        data: plotVals,
+        borderColor: '#2E75B6',
+        backgroundColor: '#2E75B6',
+        pointBackgroundColor: [ '#999', ...pointColors.slice(1) ],
+        pointRadius: 6, pointHoverRadius: 9,
+        segment: { borderColor: ctx => pointColors[ctx.p1DataIndex] },
+        tension: 0.15, fill: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: useLog ? 'Output (y) — signed log10 magnitude (raw shown in tooltip)' : 'Output (y) by week — green = climb, gold = sideways, red = fall (vs. week before)', font: { family: 'Arial', size: 11.5 } },
+        tooltip: { callbacks: { label: function(ctx){ return 'y = ' + fmt(yvals[ctx.dataIndex]); } } }
+      },
+      scales: {
+        y: { ticks: { font: { family: 'Arial', size: 10 } }, title: { display: useLog, text: 'sign × log10(|y|)', font: { family: 'Arial', size: 10 } } },
+        x: { ticks: { font: { family: 'Arial', size: 10 } } }
+      }
+    }
+  });
+
+  const stripArea = document.getElementById('stripArea');
+  const transitions = ['Wk1→2','Wk2→3','Wk3→4','Wk4→5','Wk5→6','Wk6→7','Wk7→8','Wk8→9','Wk9→10','Wk10→11'];
+  let sh = '<div class="stripwrap">';
+  g.forEach((label, i) => {
+    let cls = 'side', arrow = '→ SIDE';
+    if (label === 'CLIMB') { cls = 'climb'; arrow = '↑ CLIMB'; }
+    else if (label === 'FALL') { cls = 'fall'; arrow = '↓ FALL'; }
+    sh += '<div class="strip ' + cls + '">' + transitions[i] + '<br>' + arrow + '</div>';
+  });
+  sh += '</div>';
+  stripArea.innerHTML = sh;
+
+  const rev = REVISED_FNS.includes(String(fn)); const insHtml = '<div class="insight"><b>Diagnostic summary (Week 13 final):</b> ' + (FN_INSIGHTS[fn] || s.insight) + '</div>' + (rev ? '<div style="background:#FFF3E0;border-left:4px solid #E65100;padding:8px 14px;margin-top:6px;font-size:12px;color:#BF360C;font-weight:bold">REVISED QUERY — see insight above</div>' : ''); document.getElementById('insightArea').innerHTML = insHtml;
+}
+
+renderTabs();
+select('overview');
+</script>
+</body>
+</html>
