@@ -113,16 +113,16 @@ Weekly HTML dashboards tracked output trajectories and input coordinate movement
 
 | Fn | Description | Dims | Initial Best | Campaign Best | Best Week | Gain |
 |----|------------|------|-------------|--------------|-----------|------|
-| F1 | Radiation field detection | 2 | 0.000000 | 1.452581 | Week 7 | Located spike |
+| F1 | Radiation field detection | 2 | 0.000000 | 1.846721 | Week 13 | Located and exceeded spike |
 | F2 | Noisy ML log-likelihood | 2 | 0.611205 | 0.745754 | Week 6 | +22% |
 | F3 | Drug discovery (side-effect min) | 3 | -0.034835 | -0.007182 | Week 8 | +79% |
 | F4 | Warehouse allocation (cost min) | 4 | -4.025542 | +0.491925 | Week 9 | +112% |
-| F5 | Chemical yield optimisation | 4 | 1,088.860 | 8,636.766 | Week 12 | +694% |
-| F6 | Recipe scoring | 5 | -0.714265 | -0.094440 | Week 12 | +87% |
+| F5 | Chemical yield optimisation | 4 | 1,088.860 | 8,662.405 | Week 13 | +696% |
+| F6 | Recipe scoring | 5 | -0.714265 | -0.058449 | Week 13 | +92% |
 | F7 | ML hyperparameter tuning | 6 | 1.364968 | 3.148939 | Week 12 | +130% |
-| F8 | Neural network tuning | 8 | 9.598482 | 9.983487 | Week 12 | +4% |
+| F8 | Neural network tuning | 8 | 9.598482 | 9.984774 | Week 13 | +4% |
 
-Week 13 (Module 24) results pending. Table will be updated on receipt.
+Week 13 (Module 24) results confirmed. Five new campaign bests: F1, F4, F5, F6, F8.
 
 ### Repository Structure (Stage 2)
 
